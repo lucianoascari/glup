@@ -18,7 +18,8 @@ A cada fase o labirinto muda (Neon → Jardim → Cristal → Vulcão → recome
 A cada 1000 pontos, +1 vida (máximo 6). Com 6 vidas, cada 1000 pontos vale +200 de bônus.
 Turbinado, você pode trombar num rival, roubar 500 pontos e deixá-lo tonto por 5 segundos.
 Com 2 ou mais jogadores, quem perde todas as vidas vira besouro: continua jogando, persegue os
-outros e ganha +500 por jogador que pegar. Turbinado, dá para mandar esse besouro de volta à toca (+200).
+outros e ganha +1000 por jogador que pegar
+(besouro não ganha vidas, só pontos). Turbinado, dá para mandar esse besouro de volta à toca (+200).
 A partida termina quando não sobra ninguém vivo.
 
 ## Como o online funciona

@@ -271,7 +271,7 @@ const MAX_LIVES = 6, LIFE_BONUS = 200;   // com 6 vidas, cada 1000 pontos vale +
 const STUN_TIME = 5;                    // segundos tonto depois de ser roubado
 const BOT_SPEED = 0.9;                  // bots um pouco mais lentos que humanos
 // quem perde todas as vidas (com 2+ jogadores) vira besouro e caça os outros
-const BUG_CATCH = 500, BUG_KNOCK = 200, BUG_SPEED = 0.95, BUG_REST = 2, BUG_SPAWN = { x:9, y:11 };
+const BUG_CATCH = 1000, BUG_KNOCK = 200, BUG_SPEED = 0.95, BUG_REST = 2, BUG_SPAWN = { x:9, y:11 };
 const BOT_ERR = 0.05, BOT_DANGER = 2, BOT_RIVAL_CHANCE = 0.35, BOT_RIVAL_RANGE = 5;
 const PSTATES = ['alive', 'dead', 'out', 'bug'], GSTATES = ['house', 'leave', 'out', 'eaten', 'enter'];
 
@@ -651,6 +651,7 @@ function addScore(p, n){
   // com o máximo de vidas, o marco vale +LIFE_BONUS pontos
   while (p.score >= p.nextLife) {
     p.nextLife += LIFE_EVERY;
+    if (p.state === 'bug' || (p.lives <= 0 && mode > 1)) continue; // besouro não ganha vida (não ressuscita)
     if (p.lives < MAX_LIVES) { p.lives++; jingle([988, 1319, 1568]); popup(p.x, p.y - 1, '+1 VIDA', p.ui); }
     else { p.score += LIFE_BONUS; tone(1046, 0.18, 'triangle', 0.06, 400); popup(p.x, p.y - 1, '+' + LIFE_BONUS + ' BÔNUS', '#fff27a'); }
   }
