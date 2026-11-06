@@ -10,7 +10,9 @@ Jogo de labirinto para navegador (celular e computador), em um único arquivo: `
   Antes de começar, o anfitrião escolhe se as vagas livres serão completadas com bots.
   Se alguém sair no meio da partida, o personagem dele vira bot e o jogo continua.
 
-Jogadores: Glup (verde), Blup (roxo), Plup (amarelo) e Tlup (branco).
+Personagens: Glup (verde), Blup (roxo), Plup (amarelo) e Tlup (branco).
+Cada jogador pode digitar o próprio nome (até 12 letras), que aparece no placar,
+na sala online, no resumo final, no placar de vitórias e no recorde.
 
 A cada fase o labirinto muda (Neon → Jardim → Cristal → Vulcão → recomeça mais rápido).
 A cada 1000 pontos, +1 vida (máximo 6). Com 6 vidas, cada 1000 pontos vale +200 de bônus.

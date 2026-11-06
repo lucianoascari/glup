@@ -64,6 +64,8 @@
   .field{font:inherit;font-size:16px;padding:10px 12px;border-radius:10px;border:1px solid #3a42a0;background:#10143a;color:#fff;
     user-select:text;-webkit-user-select:text;touch-action:manipulation}
   #roomLink{width:min(320px,80vw);font-size:13px}
+  .field.name{width:min(200px,60vw);font-size:15px;padding:8px 10px}
+  .slot .field.name{margin-left:auto;width:min(170px,45vw)}
   #joinCode{width:130px;text-transform:uppercase;letter-spacing:4px;text-align:center;font-weight:800}
   .code{font-size:30px;font-weight:900;letter-spacing:6px;color:#7fe8ff}
   .spin{display:inline-block;width:16px;height:16px;border:3px solid #3fd0ff55;border-top-color:#3fd0ff;border-radius:50%;animation:sp 1s linear infinite;vertical-align:middle;margin-right:6px}
@@ -370,11 +372,22 @@ function loadPellets(){
   pelletsLeft = 0; pelletVer++;
   pellets = MAP.map(r => [...r].map(c => { const v = c === '.' ? 1 : c === 'o' ? 2 : 0; if (v) pelletsLeft++; return v; }));
 }
-function createPlayers(n, bots = []){
+// nome escolhido pelo jogador (o personagem continua sendo Glup/Blup/Plup/Tlup, com sua cor)
+const cleanName = s => String(s || '').replace(/[\u0000-\u001f<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 12);
+let myName = cleanName(localStorage.getItem('glup_name'));
+let localNames = (() => { try { return (JSON.parse(localStorage.getItem('glup_names2')) || []).map(cleanName); } catch(e) { return []; } })();
+let hiName = cleanName(localStorage.getItem('glup_hi_name'));
+function readName(id){ const el = $(id); return el ? cleanName(el.value) : ''; }
+function saveMyName(id){ const v = readName(id); if ($(id)) { myName = v; localStorage.setItem('glup_name', myName); } return myName; }
+const nameField = (id, val, ph) => `<input id="${id}" class="field name" maxlength="12" placeholder="${ph}" value="${esc(val || '')}" autocomplete="off" enterkeyhint="done">`;
+
+function createPlayers(n, bots = [], names = []){
   mode = n;
-  players = PLAYERS.slice(0, n).map((d, i) => ({ ...d, id:i, bot:!!bots[i], score:0, lives:3, nextLife:LIFE_EVERY,
+  players = PLAYERS.slice(0, n).map((d, i) => ({ ...d, char:d.name, name:(!bots[i] && cleanName(names[i])) || d.name,
+    id:i, bot:!!bots[i], score:0, lives:3, nextLife:LIFE_EVERY,
     stats:{ dots:0, ghosts:0, steals:0, levels:0, fruits:0 }, levelDots:0 }));
 }
+const playerNames = () => players.map(p => p.name === p.char ? '' : p.name);
 function placePlayer(p){
   const x = STARTS[players.length][p.id], face = x <= 9 ? DIR.left : DIR.right;
   Object.assign(p, { x, y:15, dir:null, next:face, faceDir:face, mouth:0,
@@ -401,9 +414,9 @@ function applyBodyClasses(){
   document.documentElement.style.setProperty('--me', me ? me.ui : '#cfd4ff');
   hudKey = '';
 }
-function newGame(n, bots = []){
+function newGame(n, bots = [], names = []){
   initAudio(); level = 1; popups = []; particles = []; netEvents = []; sentPelletVer = -1;
-  createPlayers(n, bots); applyBodyClasses();
+  createPlayers(n, bots, names); applyBodyClasses();
   hideOverlay(); startLevel(); resize();
   jingle([523, 659, 784, 1046, 784, 1046]);
 }
@@ -579,7 +592,7 @@ function addScore(p, n){
     if (p.lives < MAX_LIVES) { p.lives++; jingle([988, 1319, 1568]); popup(p.x, p.y - 1, '+1 VIDA', p.ui); }
     else { p.score += LIFE_BONUS; tone(1046, 0.18, 'triangle', 0.06, 400); popup(p.x, p.y - 1, '+' + LIFE_BONUS + ' BÔNUS', '#fff27a'); }
   }
-  if (p.score > hi && !p.bot) { hi = p.score; localStorage.setItem('glup_hi', hi); }
+  if (p.score > hi && !p.bot) { hi = p.score; hiName = p.name; localStorage.setItem('glup_hi', hi); localStorage.setItem('glup_hi_name', hiName); }
   updateHud();
 }
 function popup(x, y, text, c){
@@ -889,7 +902,7 @@ function draw(){
 
   if (state === 'ready') {
     if (stateT > 1.1) drawText(`FASE ${level} · ${MAPS[mapIdx].name.toUpperCase()}`, 9.5, 11.5, 0.75, '#fff27a');
-    else if (net) { const me = players[myIndex()]; if (me) drawText(`VOCÊ É O ${me.name.toUpperCase()}!`, 9.5, 11.5, 0.75, me.ui); }
+    else if (net) { const me = players[myIndex()]; if (me) drawText(`VOCÊ É O ${me.char.toUpperCase()}!`, 9.5, 11.5, 0.75, me.ui); }
     else drawText(mode > 1 ? 'PRONTOS?' : 'PRONTO!', 9.5, 11.5, 0.85, '#fff27a');
   }
   if (state === 'clear' && stateT > 1) drawText(clearMsg, 9.5, 11.5, 0.8, '#a6ff6b');
@@ -917,25 +930,27 @@ function updateHud(){
   const key = [mode, !!net, myIndex(), level, hi, muted, ...players.map(p => p.score + ':' + p.lives + ':' + p.state + ':' + p.bot)].join('|');
   if (key === hudKey) return; hudKey = key;
   $('cards').innerHTML = players.map((p, i) => {
-    const label = mode === 1 ? 'PONTOS' : p.name.toUpperCase() + (p.bot ? ' 🤖' : '') + (net && i === myIndex() ? ' · VOCÊ' : '');
+    const label = mode === 1 ? (p.name !== p.char ? esc(p.name.toUpperCase()) : 'PONTOS') : esc(p.name.toUpperCase()) + (p.bot ? ' 🤖' : '') + (net && i === myIndex() ? ' · VOCÊ' : '');
     return `<div class="card"><span class="lbl" style="${mode > 1 ? 'color:' + p.ui : ''}">${label}</span>
       <span class="sc" style="color:${p.ui}">${p.score}</span><div class="lives">${livesHtml(p)}</div></div>`;
   }).join('');
   const tot = players.reduce((s, p) => s + p.score, 0);
   $('bar').innerHTML = players.map(p => `<i style="width:${tot ? p.score / tot * 100 : 100 / mode}%;background:${p.c1}"></i>`).join('');
-  $('hi').textContent = hi; $('level').textContent = level;
+  $('hi').textContent = hi + (hi && hiName ? ` (${hiName})` : ''); $('level').textContent = level;
+  // nomes nos controles de 2 jogadores
+  document.querySelectorAll('.pad .tag').forEach((t, i) => { if (players[i]) t.textContent = players[i].name.slice(0, 7).toUpperCase(); });
   $('muteBtn').textContent = muted ? '🔇' : '🔊';
 }
 function showOverlay(html){ overlay.innerHTML = html; overlay.classList.remove('hidden'); }
 function hideOverlay(){ overlay.classList.add('hidden'); }
 const isTouch = matchMedia('(pointer:coarse)').matches;
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[c]);
-const nameHtml = p => `<b style="color:${p.ui}">${p.name}</b>`;
+const nameHtml = p => `<b style="color:${p.ui}">${esc(p.name)}</b>${p.name !== (p.char || p.name) ? ` <span class="small" style="opacity:.6">(${p.char})</span>` : ''}`;
 function winsLine(){
   const e = Object.entries(wins).filter(([k, v]) => v > 0 && k !== 'Empate').sort((a, b) => b[1] - a[1]);
   if (!e.length && !wins.Empate) return '';
   const col = n => (PLAYERS.find(p => p.name === n) || {}).ui || '#fff';
-  return `<p class="small">🏆 Vitórias: ${e.map(([k, v]) => `<b style="color:${col(k)}">${k} ${v}</b>`).join(' · ')}${wins.Empate ? ` · empates ${wins.Empate}` : ''}</p>`;
+  return `<p class="small">🏆 Vitórias: ${e.slice(0, 8).map(([k, v]) => `<b style="color:${col(k)}">${esc(k)} ${v}</b>`).join(' · ')}${wins.Empate ? ` · empates ${wins.Empate}` : ''}</p>`;
 }
 
 function showMenu(){
@@ -944,6 +959,7 @@ function showMenu(){
     <p>Coma todas as sementes e fuja dos besouros. A <b style="color:#fff6a0">semente brilhante</b> deixa você caçar os besouros!
       A cada fase, um labirinto novo.</p>
     <p class="small">❤️ A cada <b>${LIFE_EVERY} pontos</b> você ganha mais uma vida (máximo ${MAX_LIVES}). Com ${MAX_LIVES} vidas, cada ${LIFE_EVERY} pontos vale <b>+${LIFE_BONUS} de bônus</b>.</p>
+    <div class="row"><label class="small" for="nameMain">Seu nome:</label>${nameField('nameMain', myName, 'Digite seu nome')}</div>
     <div class="row">
       <button class="big-btn" data-act="start1">1 JOGADOR</button>
       <button class="big-btn alt" data-act="start2">2 NO MESMO APARELHO</button>
@@ -957,10 +973,23 @@ function showMenu(){
     <p class="small">${isTouch ? 'Deslize na tela ou use o controle.' : 'Setas ou WASD. No mesmo teclado: Glup = W A S D, Blup = setas. Espaço/P pausa, M som.'}</p>
     ${winsLine()}`);
 }
+function showLocal2Names(){
+  state = 'menu';
+  showOverlay(`<h2>Quem vai jogar?</h2>
+    <div class="slots">
+      <div class="slot"><span class="dot" style="background:${PLAYERS[0].c1}"></span><b style="color:${PLAYERS[0].ui}">Glup</b>
+        ${nameField('nameP1', localNames[0] || myName, 'Nome do jogador 1')}</div>
+      <div class="slot"><span class="dot" style="background:${PLAYERS[1].c1}"></span><b style="color:${PLAYERS[1].ui}">Blup</b>
+        ${nameField('nameP2', localNames[1], 'Nome do jogador 2')}</div>
+    </div>
+    <p class="small">${isTouch ? 'Glup usa o controle da esquerda, Blup o da direita.' : 'Glup usa W A S D, Blup usa as setas.'}</p>
+    <div class="row"><button class="big-btn alt" data-act="go2">▶ JOGAR</button><button class="big-btn ghost sm" data-act="menu">VOLTAR</button></div>`);
+}
 function showOnlineMenu(){
   state = 'menu';
   showOverlay(`<h2>🌐 Jogar online</h2>
     <p>Crie uma sala e mande o link para até 3 amigos, ou entre com o código que te passaram.</p>
+    <div class="row"><label class="small" for="nameOnline">Seu nome:</label>${nameField('nameOnline', myName, 'Digite seu nome')}</div>
     <button class="big-btn net" data-act="host">CRIAR SALA</button>
     <p class="small" style="margin-top:18px">Já tem um código?</p>
     <div class="row">
@@ -973,7 +1002,7 @@ function gameOver(){
   state = 'over';
   if (mode === 1) {
     const p = players[0];
-    showOverlay(`<h2>Fim de jogo</h2><p>Pontos: <b>${p.score}</b><br>Recorde: <b>${hi}</b><br>Fase alcançada: <b>${level}</b></p>
+    showOverlay(`<h2>Fim de jogo${p.name !== p.char ? ', ' + esc(p.name) : ''}!</h2><p>Pontos: <b>${p.score}</b><br>Recorde: <b>${hi}${hiName ? ' (' + esc(hiName) + ')' : ''}</b><br>Fase alcançada: <b>${level}</b></p>
       <p class="small">🌱 ${p.stats.dots} sementes · 🐞 ${p.stats.ghosts} besouros · 🍒 ${p.stats.fruits} cerejas</p>
       <div class="row"><button class="big-btn" data-act="again">JOGAR DE NOVO</button><button class="big-btn ghost" data-act="menu">MENU</button></div>`);
     return;
@@ -1022,19 +1051,24 @@ overlay.addEventListener('click', e => {
   const b = e.target.closest('[data-act]'); if (!b || b.disabled) return;
   const act = b.dataset.act;
   initAudio();
-  if (act === 'start1') newGame(1);
-  else if (act === 'start2') newGame(2);
-  else if (act === 'startBots') newGame(4, [false, true, true, true]);
-  else if (act === 'online') showOnlineMenu();
-  else if (act === 'host') hostRoom();
-  else if (act === 'join') { const c = ($('joinCode').value || '').trim().toUpperCase(); if (c.length >= 4) joinRoom(c); }
+  if (act === 'start1') newGame(1, [], [saveMyName('nameMain')]);
+  else if (act === 'start2') { saveMyName('nameMain'); showLocal2Names(); }
+  else if (act === 'go2') {
+    localNames = [readName('nameP1'), readName('nameP2')];
+    localStorage.setItem('glup_names2', JSON.stringify(localNames));
+    newGame(2, [], localNames);
+  }
+  else if (act === 'startBots') newGame(4, [false, true, true, true], [saveMyName('nameMain')]);
+  else if (act === 'online') { saveMyName('nameMain'); showOnlineMenu(); }
+  else if (act === 'host') { saveMyName('nameOnline'); hostRoom(); }
+  else if (act === 'join') { saveMyName('nameOnline'); const c = ($('joinCode').value || '').trim().toUpperCase(); if (c.length >= 4) joinRoom(c); }
   else if (act === 'copy') copyLink();
   else if (act === 'share') navigator.share({ title:'Glup!', text:'Bora jogar Glup! comigo? Entre na minha sala:', url:net.link }).catch(() => {});
   else if (act === 'bots') { net.fillBots = !net.fillBots; renderHostLobby(); broadcastLobby(); }
   else if (act === 'go') startOnline();
   else if (act === 'again') {
     if (isGuest()) { netSend({ t:'again' }); b.textContent = 'AGUARDANDO…'; }
-    else newGame(mode, players.map(p => p.bot));
+    else newGame(mode, players.map(p => p.bot), playerNames());
   }
   else if (act === 'resume') togglePause();
   else if (act === 'menu') toMenu();
@@ -1085,15 +1119,16 @@ const fileWarn = () => location.protocol === 'file:'
   ? '<p class="small" style="color:#ffb340">⚠️ Você abriu o jogo como arquivo local. O link só funciona com o jogo hospedado num site (veja o LEIAME).</p>' : '';
 
 function lobbySlots(){
-  const s = [{ kind:'host' }];
-  net.guests.forEach(() => s.push({ kind:'guest' }));
+  const s = [{ kind:'host', name:myName }];
+  net.guests.forEach(c => s.push({ kind:'guest', name:c.pname || '' }));
   while (s.length < MAX_PLAYERS) s.push({ kind: net.fillBots ? 'bot' : 'empty' });
   return s;
 }
 function slotsHtml(slots, you){
   const lbl = { host:'👑 anfitrião', guest:'✅ conectado', bot:'🤖 bot', empty:'⏳ vaga livre' };
   return `<div class="slots">${slots.map((s, i) => `<div class="slot ${i === you ? 'me' : ''}">
-    <span class="dot" style="background:${PLAYERS[i].c1}"></span><b style="color:${PLAYERS[i].ui}">${PLAYERS[i].name}${i === you ? ' (você)' : ''}</b>
+    <span class="dot" style="background:${PLAYERS[i].c1}"></span><b style="color:${PLAYERS[i].ui}">${esc(cleanName(s.name) || PLAYERS[i].name)}${i === you ? ' (você)' : ''}</b>
+    ${cleanName(s.name) ? `<span class="small" style="opacity:.6">${PLAYERS[i].name}</span>` : ''}
     <span class="st">${lbl[s.kind]}</span></div>`).join('')}</div>`;
 }
 function renderHostLobby(){
@@ -1157,8 +1192,9 @@ function startOnline(){
   const bots = Array.from({ length:n }, (_, i) => i >= humans);
   net.guests.forEach((c, i) => c.slot = i + 1);
   net.started = true;
-  newGame(n, bots);
-  net.guests.forEach(c => safeSend(c, { t:'start', slot:c.slot, n, bt:bots.map(Number) }));
+  const names = [myName, ...net.guests.map(c => c.pname || '')];
+  newGame(n, bots, names);
+  net.guests.forEach(c => safeSend(c, { t:'start', slot:c.slot, n, bt:bots.map(Number), nm:playerNames() }));
 }
 function guestLeft(conn){
   if (!net || net.role !== 'host') return;
@@ -1175,16 +1211,17 @@ function guestLeft(conn){
 // Anfitrião: recebe comandos dos convidados
 function onHostData(conn, m){
   if (!m || typeof m !== 'object' || !net) return;
+  if (m.t === 'hello') { conn.pname = cleanName(m.name); renderHostLobby(); broadcastLobby(); return; }
   if (m.t === 'd' && DIR[m.d] && net.started && conn.slot) { const p = players[conn.slot]; if (p && !p.bot) p.next = DIR[m.d]; }
   else if (m.t === 'pause') { if (state === 'play' || state === 'ready' || state === 'paused') togglePause(); }
-  else if (m.t === 'again' && state === 'over') newGame(mode, players.map(p => p.bot));
+  else if (m.t === 'again' && state === 'over') { newGame(mode, players.map(p => p.bot), playerNames()); net.guests.forEach(c => safeSend(c, { t:'start', slot:c.slot, n:mode, bt:players.map(p => p.bot ? 1 : 0), nm:playerNames() })); }
 }
 // Anfitrião: envia o estado do jogo ~30x por segundo
 const r2 = v => Math.round(v * 100) / 100;
 const di = d => d ? ORDER.indexOf(d) : -1;
 function sendSnapshot(){
   if (!net.guests.length) { netEvents = []; return; }
-  const s = { t:'s', st:state, stT:r2(stateT), lv:level, m:mapIdx, fr:r2(frightT), cm:clearMsg, bt:players.map(p => p.bot ? 1 : 0),
+  const s = { t:'s', st:state, stT:r2(stateT), lv:level, m:mapIdx, fr:r2(frightT), cm:clearMsg, bt:players.map(p => p.bot ? 1 : 0), nm:playerNames(),
     p: players.map(p => [r2(p.x), r2(p.y), di(p.dir), di(p.faceDir), PSTATES.indexOf(p.state), r2(p.deadT), r2(p.invT), r2(p.powerT), r2(p.stunT),
       p.score, p.lives, p.stats.dots, p.stats.ghosts, p.stats.steals, p.stats.levels, p.stats.fruits]),
     g: ghosts.map(g => [r2(g.x), r2(g.y), di(g.dir), GSTATES.indexOf(g.state), g.scared ? 1 : 0]),
@@ -1207,6 +1244,7 @@ async function joinRoom(code){
     net.conn = conn;
     conn.on('open', () => {
       clearTimeout(timer);
+      safeSend(conn, { t:'hello', name:myName });
       lobby(`<h2><span class="spin"></span>Conectado!</h2><p>Aguardando a lista da sala…</p>`);
     });
     conn.on('data', onGuestData);
@@ -1230,8 +1268,8 @@ function copyLink(){
 
 // Convidado: mensagens do anfitrião
 let lastSnapState = '';
-function guestPrepare(n, bt){
-  createPlayers(n, bt.map(Boolean)); applyBodyClasses();
+function guestPrepare(n, bt, nm = []){
+  createPlayers(n, bt.map(Boolean), nm); applyBodyClasses();
   setMap(0); loadPellets(); resetActors(); resize(); updateHud();
 }
 function onGuestData(m){
@@ -1242,7 +1280,7 @@ function onGuestData(m){
     net.slot = m.you;
     document.documentElement.style.setProperty('--me', PLAYERS[m.you].ui);
     lobby(`<h2>Sala <span class="code">${esc(m.code)}</span></h2>
-      <p>Você é o ${nameHtml(PLAYERS[m.you])}!</p>
+      <p>${myName ? esc(myName) + ', você' : 'Você'} é o ${nameHtml(PLAYERS[m.you])}!</p>
       ${slotsHtml(m.slots, m.you)}
       <p class="small"><span class="spin"></span>Aguardando o anfitrião começar a partida…</p>
       <button class="big-btn ghost sm" data-act="menu">SAIR</button>`);
@@ -1250,11 +1288,11 @@ function onGuestData(m){
   }
   if (m.t === 'start') {
     net.slot = m.slot; net.started = true; level = 1; popups = []; particles = [];
-    guestPrepare(m.n, m.bt); state = 'ready'; stateT = 2.2; lastSnapState = 'ready'; hideOverlay();
+    guestPrepare(m.n, m.bt, m.nm || []); state = 'ready'; stateT = 2.2; lastSnapState = 'ready'; hideOverlay();
     return;
   }
   if (m.t !== 's') return;
-  if (m.p.length !== players.length) guestPrepare(m.p.length, m.bt);
+  if (m.p.length !== players.length) guestPrepare(m.p.length, m.bt, m.nm || []);
   if (m.m !== mapIdx || !mazeCanvas) setMap(m.m);
   level = m.lv; stateT = m.stT; frightT = m.fr; clearMsg = m.cm;
   if (m.pe) {
@@ -1268,8 +1306,8 @@ function onGuestData(m){
     p.dir = ORDER[a[2]] || null; p.faceDir = ORDER[a[3]] || p.faceDir; p.state = PSTATES[a[4]];
     p.deadT = a[5]; p.invT = a[6]; p.powerT = a[7]; p.stunT = a[8];
     p.score = a[9]; p.lives = a[10]; p.stats = { dots:a[11], ghosts:a[12], steals:a[13], levels:a[14], fruits:a[15] || 0 };
-    p.bot = !!m.bt[i];
-    if (i === myIndex() && p.score > hi) { hi = p.score; localStorage.setItem('glup_hi', hi); }
+    p.bot = !!m.bt[i]; if (m.nm) p.name = cleanName(m.nm[i]) || p.char;
+    if (i === myIndex() && p.score > hi) { hi = p.score; hiName = p.name; localStorage.setItem('glup_hi', hi); localStorage.setItem('glup_hi_name', hiName); }
   });
   m.g.forEach((a, i) => {
     const g = ghosts[i]; if (!g) return;
@@ -1328,7 +1366,7 @@ addEventListener('keydown', e => {
   if (state === 'menu' && !net) { if (e.code === 'Digit1') newGame(1); if (e.code === 'Digit2') newGame(2); }
   if (e.code === 'Space' || e.code === 'Enter') {
     e.preventDefault();
-    if ((state === 'menu' || state === 'over') && !net) newGame(mode, players.map(p => p.bot));
+    if (state === 'over' && !net) newGame(mode, players.map(p => p.bot), playerNames());
     else if (state === 'play' || state === 'ready' || state === 'paused') togglePause();
   }
   if (e.code === 'KeyP' || e.code === 'Escape') { if (state === 'play' || state === 'ready' || state === 'paused') togglePause(); }
@@ -1385,10 +1423,11 @@ if (roomParam && /^[A-Z0-9]{4,6}$/i.test(roomParam)) {
   state = 'lobby';
   showOverlay(`<h1>GLUP!</h1><p>Você foi convidado para uma partida online!</p>
     <p class="small">Sala <b>${esc(roomParam.toUpperCase())}</b> · até 4 jogadores</p>
+    <div class="row"><label class="small" for="nameInvite">Seu nome:</label>${nameField('nameInvite', myName, 'Digite seu nome')}</div>
     <button class="big-btn alt" id="joinNow">ENTRAR NA SALA</button>
     <button class="big-btn ghost sm" data-act="menu">IR PARA O MENU</button>`);
   // o toque no botão também libera o áudio no celular
-  $('joinNow').addEventListener('click', () => { initAudio(); joinRoom(roomParam.toUpperCase()); });
+  $('joinNow').addEventListener('click', () => { initAudio(); saveMyName('nameInvite'); joinRoom(roomParam.toUpperCase()); });
 } else showMenu();
 requestAnimationFrame(frame);
 // gancho p/ testes automatizados
