@@ -5,10 +5,15 @@ Jogo de labirinto para navegador (celular e computador), em um único arquivo: `
 ## Modos
 - **1 jogador**
 - **2 no mesmo aparelho**: cada um com seu controle na tela (ou teclado: Glup = WASD, Blup = setas)
-- **Online**: um cria a sala e manda o link (ou o código de 5 letras); o outro abre e joga do próprio celular
+- **Contra 3 bots**: você contra o computador
+- **Online (até 4)**: quem cria a sala manda o link (ou o código de 5 letras) para até 3 amigos.
+  Antes de começar, o anfitrião escolhe se as vagas livres serão completadas com bots.
+  Se alguém sair no meio da partida, o personagem dele vira bot e o jogo continua.
+
+Jogadores: Glup (verde), Blup (roxo), Plup (amarelo) e Tlup (branco).
 
 A cada fase o labirinto muda (Neon → Jardim → Cristal → Vulcão → recomeça mais rápido).
-A cada 1000 pontos, +1 vida.
+A cada 1000 pontos, +1 vida. Turbinado, você pode trombar num rival e roubar 500 pontos.
 
 ## Como o online funciona
 Usa WebRTC via [PeerJS](https://peerjs.com): os dois aparelhos se conectam direto.
