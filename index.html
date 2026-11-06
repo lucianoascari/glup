@@ -400,6 +400,12 @@ function becomeBug(p){
   p.state = 'bug'; p.x = BUG_SPAWN.x; p.y = BUG_SPAWN.y; p.dir = null; p.next = null;
   p.invT = BUG_REST; p.powerT = 0; p.stunT = 0; p.botKey = -1;
 }
+function revive(p){
+  placePlayer(p); p.state = 'alive'; p.invT = 3;
+  popup(p.x, p.y - 1, `${p.name} voltou!`, p.ui);
+  burst(p.x + .5, p.y + .5, p.c1, 18);
+  jingle([523, 784, 1046]);
+}
 function resetActors(){
   players.forEach(p => { placePlayer(p); p.state = p.lives > 0 ? 'alive' : outState(); if (p.state === 'bug') becomeBug(p); });
   ghosts = GHOSTS.map((d, i) => ({ ...d, id:i, x:d.sx, y:d.sy, dir:DIR.left,
@@ -651,10 +657,11 @@ function addScore(p, n){
   // com o máximo de vidas, o marco vale +LIFE_BONUS pontos
   while (p.score >= p.nextLife) {
     p.nextLife += LIFE_EVERY;
-    if (p.state === 'bug' || (p.lives <= 0 && mode > 1)) continue; // besouro não ganha vida (não ressuscita)
     if (p.lives < MAX_LIVES) { p.lives++; jingle([988, 1319, 1568]); popup(p.x, p.y - 1, '+1 VIDA', p.ui); }
     else { p.score += LIFE_BONUS; tone(1046, 0.18, 'triangle', 0.06, 400); popup(p.x, p.y - 1, '+' + LIFE_BONUS + ' BÔNUS', '#fff27a'); }
   }
+  // besouro que ganhou vida volta a ser jogador na hora
+  if (p.state === 'bug' && p.lives > 0) revive(p);
   if (p.score > hi && !p.bot) { hi = p.score; hiName = p.name; localStorage.setItem('glup_hi', hi); localStorage.setItem('glup_hi_name', hiName); }
   updateHud();
 }
