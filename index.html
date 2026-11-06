@@ -265,6 +265,9 @@ const PLAYERS = [
 const STARTS = { 1:[9], 2:[6, 12], 3:[6, 12, 9], 4:[7, 11, 4, 14] }; // colunas na linha 15
 const MODES = [7, 20, 7, 20, 5, 20, 5, Infinity]; // par = dispersar, ímpar = perseguir
 const STEAL = 500, LEVEL_BONUS = 1000, LIFE_EVERY = 1000, MAX_PLAYERS = 4;
+const MAX_LIVES = 6, LIFE_BONUS = 200;   // com 6 vidas, cada 1000 pontos vale +200 pontos
+const STUN_TIME = 5;                    // segundos tonto depois de ser roubado
+const BOT_SPEED = 0.9;                  // bots um pouco mais lentos que humanos
 const BOT_ERR = 0.05, BOT_DANGER = 2, BOT_RIVAL_CHANCE = 0.35, BOT_RIVAL_RANGE = 5;
 const PSTATES = ['alive', 'dead', 'out'], GSTATES = ['house', 'leave', 'out', 'eaten', 'enter'];
 
@@ -370,7 +373,7 @@ function loadPellets(){
 function createPlayers(n, bots = []){
   mode = n;
   players = PLAYERS.slice(0, n).map((d, i) => ({ ...d, id:i, bot:!!bots[i], score:0, lives:3, nextLife:LIFE_EVERY,
-    stats:{ dots:0, ghosts:0, steals:0, levels:0 }, levelDots:0 }));
+    stats:{ dots:0, ghosts:0, steals:0, levels:0, fruits:0 }, levelDots:0 }));
 }
 function placePlayer(p){
   const x = STARTS[players.length][p.id], face = x <= 9 ? DIR.left : DIR.right;
@@ -503,7 +506,7 @@ function updatePlayer(p, dt){
   if (p.bot) botThink(p);
 
   if (p.next && p.dir && p.next.x === -p.dir.x && p.next.y === -p.dir.y) p.dir = p.next;
-  const sp = baseSpeed() * (p.powerT > 0 ? 1.1 : 1);
+  const sp = baseSpeed() * (p.powerT > 0 ? 1.1 : 1) * (p.bot ? BOT_SPEED : 1);
   step(p, sp * dt, e => {
     if (e.next && isOpen(e.x + e.next.x, e.y + e.next.y)) e.dir = e.next;
     if (e.dir && !isOpen(e.x + e.dir.x, e.y + e.dir.y)) e.dir = null;
@@ -522,7 +525,7 @@ function updatePlayer(p, dt){
     if (pelletsLeft === 0) levelClear();
   }
   if (bonus && Math.abs(p.x - bonus.x) < 0.6 && Math.abs(p.y - bonus.y) < 0.6) {
-    const pts = 300 + level * 200; addScore(p, pts); popup(bonus.x, bonus.y, '+' + pts, '#ff6b8b');
+    const pts = 300 + level * 200; p.stats.fruits++; addScore(p, pts); popup(bonus.x, bonus.y, '+' + pts, '#ff6b8b');
     tone(880, 0.25, 'sine', 0.08, 600); bonus = null;
   }
 }
@@ -570,9 +573,11 @@ function burst(x, y, c, n = 24){
 function addScore(p, n){
   p.score = Math.max(0, p.score + n);
   // vida extra a cada LIFE_EVERY pontos (cada marco só vale uma vez, mesmo que perca pontos num roubo)
+  // com o máximo de vidas, o marco vale +LIFE_BONUS pontos
   while (p.score >= p.nextLife) {
-    p.nextLife += LIFE_EVERY; p.lives++;
-    jingle([988, 1319, 1568]); popup(p.x, p.y - 1, '+1 VIDA', p.ui);
+    p.nextLife += LIFE_EVERY;
+    if (p.lives < MAX_LIVES) { p.lives++; jingle([988, 1319, 1568]); popup(p.x, p.y - 1, '+1 VIDA', p.ui); }
+    else { p.score += LIFE_BONUS; tone(1046, 0.18, 'triangle', 0.06, 400); popup(p.x, p.y - 1, '+' + LIFE_BONUS + ' BÔNUS', '#fff27a'); }
   }
   if (p.score > hi && !p.bot) { hi = p.score; localStorage.setItem('glup_hi', hi); }
   updateHud();
@@ -662,7 +667,8 @@ function checkCollisions(){
     if (vic.invT > 0) continue;
     const amt = Math.min(STEAL, vic.score);
     addScore(vic, -amt); addScore(atk, amt); atk.stats.steals++;
-    vic.stunT = 1.2; vic.dir = null; atk.stealCd = 1.5; vic.invT = 1.5;
+    // fica tonto STUN_TIME s (protegido de besouros e de novos roubos) e depois segue na mesma direção
+    vic.stunT = STUN_TIME; if (vic.dir) vic.next = vic.dir; atk.stealCd = 1.5; vic.invT = STUN_TIME + 1.5;
     popup(atk.x, atk.y - 0.6, '+' + amt, atk.ui); popup(vic.x, vic.y - 0.6, '-' + amt, '#ff6b6b');
     burst(vic.x + .5, vic.y + .5, '#fff27a', 14);
     tone(1200, 0.2, 'square', 0.06, -800);
@@ -861,6 +867,9 @@ function draw(){
   const showPlayers = state !== 'menu' && state !== 'lobby';
   if (showPlayers) players.forEach(p => { if (p.state !== 'out') withWrap(p, (x, y) => drawPlayer(p, x, y)); });
 
+  // contagem regressiva de quem está tonto
+  if (showPlayers) players.forEach(p => { if (p.state === 'alive' && p.stunT > 0) drawText(String(Math.ceil(p.stunT)), wrapX(p.x) + .5, p.y - 0.55, 0.55, '#fff27a'); });
+
   // setinha "você" no começo da fase (online)
   if (net && showPlayers && state === 'ready') {
     const p = players[myIndex()];
@@ -934,7 +943,7 @@ function showMenu(){
   showOverlay(`<h1>GLUP!</h1>
     <p>Coma todas as sementes e fuja dos besouros. A <b style="color:#fff6a0">semente brilhante</b> deixa você caçar os besouros!
       A cada fase, um labirinto novo.</p>
-    <p class="small">❤️ A cada <b>${LIFE_EVERY} pontos</b> você ganha mais uma vida!</p>
+    <p class="small">❤️ A cada <b>${LIFE_EVERY} pontos</b> você ganha mais uma vida (máximo ${MAX_LIVES}). Com ${MAX_LIVES} vidas, cada ${LIFE_EVERY} pontos vale <b>+${LIFE_BONUS} de bônus</b>.</p>
     <div class="row">
       <button class="big-btn" data-act="start1">1 JOGADOR</button>
       <button class="big-btn alt" data-act="start2">2 NO MESMO APARELHO</button>
@@ -944,7 +953,7 @@ function showMenu(){
       <button class="big-btn net" data-act="online">🌐 ONLINE (ATÉ 4)</button>
     </div>
     <p class="small">Na disputa, todos comem as mesmas sementes! Turbinado (semente brilhante), trombe num rival
-      para <b>roubar ${STEAL} pontos</b>. Quem comer mais sementes na fase ganha <b>+${LEVEL_BONUS}</b>. Vence quem tiver mais pontos.</p>
+      para <b>roubar ${STEAL} pontos</b> e deixá-lo tonto por ${STUN_TIME}s. Quem comer mais sementes na fase ganha <b>+${LEVEL_BONUS}</b>. Vence quem tiver mais pontos.</p>
     <p class="small">${isTouch ? 'Deslize na tela ou use o controle.' : 'Setas ou WASD. No mesmo teclado: Glup = W A S D, Blup = setas. Espaço/P pausa, M som.'}</p>
     ${winsLine()}`);
 }
@@ -965,6 +974,7 @@ function gameOver(){
   if (mode === 1) {
     const p = players[0];
     showOverlay(`<h2>Fim de jogo</h2><p>Pontos: <b>${p.score}</b><br>Recorde: <b>${hi}</b><br>Fase alcançada: <b>${level}</b></p>
+      <p class="small">🌱 ${p.stats.dots} sementes · 🐞 ${p.stats.ghosts} besouros · 🍒 ${p.stats.fruits} cerejas</p>
       <div class="row"><button class="big-btn" data-act="again">JOGAR DE NOVO</button><button class="big-btn ghost" data-act="menu">MENU</button></div>`);
     return;
   }
@@ -984,14 +994,14 @@ function gameOver(){
   const rows = ranked.map(p => {
     const rank = players.filter(q => q.score > p.score).length;
     return `<tr class="${net && p.id === myIndex() ? 'me' : ''}"><td>${medal[rank]}</td><td style="text-align:left">${nameHtml(p)}${p.bot ? ' 🤖' : ''}</td>
-      <td><b>${p.score}</b></td><td>${p.stats.dots}</td><td>${p.stats.ghosts}</td><td>${p.stats.steals}</td><td>${p.stats.levels}</td></tr>`;
+      <td><b>${p.score}</b></td><td>${p.stats.dots}</td><td>${p.stats.ghosts}</td><td>${p.stats.fruits}</td><td>${p.stats.steals}</td><td>${p.stats.levels}</td></tr>`;
   }).join('');
   showOverlay(`<h2>${title}</h2>
     <table class="res">
-      <tr><th></th><th></th><th>PONTOS</th><th>🌱</th><th>🐞</th><th>💰</th><th>🏁</th></tr>
+      <tr><th></th><th></th><th>PONTOS</th><th>🌱</th><th>🐞</th><th>🍒</th><th>💰</th><th>🏁</th></tr>
       ${rows}
     </table>
-    <p class="small">🌱 sementes · 🐞 besouros comidos · 💰 roubos · 🏁 fases vencidas · fase final: ${level}</p>
+    <p class="small">🌱 sementes · 🐞 besouros comidos · 🍒 cerejas · 💰 roubos · 🏁 fases vencidas · fase final: ${level}</p>
     ${winsLine()}
     <div class="row"><button class="big-btn alt" data-act="again">REVANCHE</button><button class="big-btn ghost" data-act="menu">${net ? 'SAIR' : 'MENU'}</button></div>
     ${net ? '<p class="small">A revanche começa quando qualquer jogador tocar em REVANCHE.</p>' : ''}`);
@@ -1176,7 +1186,7 @@ function sendSnapshot(){
   if (!net.guests.length) { netEvents = []; return; }
   const s = { t:'s', st:state, stT:r2(stateT), lv:level, m:mapIdx, fr:r2(frightT), cm:clearMsg, bt:players.map(p => p.bot ? 1 : 0),
     p: players.map(p => [r2(p.x), r2(p.y), di(p.dir), di(p.faceDir), PSTATES.indexOf(p.state), r2(p.deadT), r2(p.invT), r2(p.powerT), r2(p.stunT),
-      p.score, p.lives, p.stats.dots, p.stats.ghosts, p.stats.steals, p.stats.levels]),
+      p.score, p.lives, p.stats.dots, p.stats.ghosts, p.stats.steals, p.stats.levels, p.stats.fruits]),
     g: ghosts.map(g => [r2(g.x), r2(g.y), di(g.dir), GSTATES.indexOf(g.state), g.scared ? 1 : 0]),
     b: bonus ? [bonus.x, bonus.y, r2(bonus.t)] : 0, ev: netEvents };
   if (pelletVer !== sentPelletVer) { s.pe = pellets.map(r => r.join('')).join(''); sentPelletVer = pelletVer; }
@@ -1257,7 +1267,7 @@ function onGuestData(m){
     p.tx = a[0]; p.ty = a[1]; if (jump) { p.x = a[0]; p.y = a[1]; }
     p.dir = ORDER[a[2]] || null; p.faceDir = ORDER[a[3]] || p.faceDir; p.state = PSTATES[a[4]];
     p.deadT = a[5]; p.invT = a[6]; p.powerT = a[7]; p.stunT = a[8];
-    p.score = a[9]; p.lives = a[10]; p.stats = { dots:a[11], ghosts:a[12], steals:a[13], levels:a[14] };
+    p.score = a[9]; p.lives = a[10]; p.stats = { dots:a[11], ghosts:a[12], steals:a[13], levels:a[14], fruits:a[15] || 0 };
     p.bot = !!m.bt[i];
     if (i === myIndex() && p.score > hi) { hi = p.score; localStorage.setItem('glup_hi', hi); }
   });

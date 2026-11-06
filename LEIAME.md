@@ -13,7 +13,8 @@ Jogo de labirinto para navegador (celular e computador), em um único arquivo: `
 Jogadores: Glup (verde), Blup (roxo), Plup (amarelo) e Tlup (branco).
 
 A cada fase o labirinto muda (Neon → Jardim → Cristal → Vulcão → recomeça mais rápido).
-A cada 1000 pontos, +1 vida. Turbinado, você pode trombar num rival e roubar 500 pontos.
+A cada 1000 pontos, +1 vida (máximo 6). Com 6 vidas, cada 1000 pontos vale +200 de bônus.
+Turbinado, você pode trombar num rival, roubar 500 pontos e deixá-lo tonto por 5 segundos.
 
 ## Como o online funciona
 Usa WebRTC via [PeerJS](https://peerjs.com): os dois aparelhos se conectam direto.
