@@ -1,0 +1,1205 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0b0f2a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="description" content="Glup! — jogo de labirinto para 1 ou 2 jogadores, no mesmo aparelho ou online.">
+<title>Glup! — Caça no Labirinto</title>
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;background:#0b0f2a;color:#fff;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;overscroll-behavior:none}
+  #app{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;
+    padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+
+  /* HUD */
+  #hud{display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;max-width:680px;padding:8px 10px;font-weight:800}
+  .lbl{display:block;font-size:10px;opacity:.65;font-weight:700;letter-spacing:.5px}
+  .lbl b{opacity:1;color:#fff}
+  .card{min-width:74px}
+  .card .sc{font-size:18px;display:block;line-height:1.1}
+  .c1 .sc{color:#a6ff6b} .c2 .sc{color:#c9a8ff}
+  .c2{text-align:right} .c2 .lives{justify-content:flex-end}
+  .lives{display:flex;gap:3px;margin-top:3px;min-height:11px;font-size:10px;font-weight:800;opacity:.9;align-items:center}
+  .life{width:10px;height:10px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#d9ffb0,#5fdc4a)}
+  .life.v{background:radial-gradient(circle at 35% 35%,#efe4ff,#9a6bff)}
+  .mid{flex:1;text-align:center;max-width:220px}
+  #mapName{font-size:11px;opacity:.8;margin-top:2px}
+  #bar{display:none;height:8px;border-radius:4px;background:#8b5cff;margin-top:5px;overflow:hidden;box-shadow:0 0 0 1px #2a2f6a}
+  #barFill{display:block;height:100%;width:50%;background:#5fdc4a;transition:width .25s}
+  #card2{display:none}
+  body.two #card2{display:block} body.two #bar{display:block}
+  .btns{display:flex;gap:6px}
+  .icon-btn{background:#1b2160;border:1px solid #3a42a0;color:#fff;border-radius:10px;width:36px;height:34px;font-size:15px;cursor:pointer}
+  #netDot{display:none;width:8px;height:8px;border-radius:50%;background:#5fdc4a;box-shadow:0 0 6px #5fdc4a;align-self:center}
+  body.online #netDot{display:block}
+
+  #main{flex:1;min-height:0;width:100%;display:flex;flex-direction:column}
+  #stage{flex:1;min-height:0;min-width:0;position:relative;display:flex;align-items:center;justify-content:center;padding:4px}
+  canvas{display:block;border-radius:10px;box-shadow:0 0 30px #3b2fff33}
+
+  /* Overlay */
+  #overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
+    background:rgba(8,10,32,.84);backdrop-filter:blur(3px);padding:16px;z-index:5;overflow:auto;touch-action:pan-y}
+  #overlay.hidden{display:none}
+  #overlay h1{font-size:clamp(40px,12vw,72px);margin:0 0 4px;color:#a6ff6b;text-shadow:0 0 18px #5fdc4a,0 4px 0 #2a6b1f;letter-spacing:3px}
+  #overlay h2{font-size:clamp(24px,7vw,40px);margin:0 0 8px}
+  #overlay p{margin:6px 0;opacity:.92;max-width:380px;line-height:1.4}
+  #overlay .small{font-size:13px;opacity:.75}
+  .row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;align-items:center}
+  .big-btn{margin-top:12px;font-size:17px;font-weight:800;padding:12px 22px;border-radius:14px;border:0;color:#10240a;
+    background:linear-gradient(#c4ff8f,#5fdc4a);box-shadow:0 5px 0 #2a6b1f;cursor:pointer;letter-spacing:1px}
+  .big-btn.alt{color:#1d0b3d;background:linear-gradient(#e2d2ff,#9a6bff);box-shadow:0 5px 0 #4b2a91}
+  .big-btn.net{color:#06222c;background:linear-gradient(#b8f3ff,#3fd0ff);box-shadow:0 5px 0 #1a6c85}
+  .big-btn.ghost{color:#fff;background:#1b2160;box-shadow:0 5px 0 #0e1240}
+  .big-btn.sm{font-size:14px;padding:9px 14px}
+  .big-btn:active{transform:translateY(3px)}
+  .field{font:inherit;font-size:16px;padding:10px 12px;border-radius:10px;border:1px solid #3a42a0;background:#10143a;color:#fff;
+    user-select:text;-webkit-user-select:text;touch-action:manipulation}
+  #roomLink{width:min(320px,80vw);font-size:13px}
+  #joinCode{width:130px;text-transform:uppercase;letter-spacing:4px;text-align:center;font-weight:800}
+  .code{font-size:34px;font-weight:900;letter-spacing:6px;color:#7fe8ff}
+  .spin{display:inline-block;width:18px;height:18px;border:3px solid #3fd0ff55;border-top-color:#3fd0ff;border-radius:50%;animation:sp 1s linear infinite;vertical-align:middle;margin-right:6px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  table.res{border-collapse:collapse;margin:8px 0;font-size:15px}
+  table.res td,table.res th{padding:4px 12px}
+  table.res th{font-size:16px}
+  table.res td:first-child{opacity:.7;text-align:left;font-size:13px}
+  .g{color:#a6ff6b}.v{color:#c9a8ff}
+
+  /* Controles na tela */
+  #pads{display:none;justify-content:space-around;align-items:center;padding:6px 6px 12px}
+  @media (pointer:coarse){ #pads{display:flex} }
+  .pad{--b:min(64px,17vw,15vh);display:grid;grid-template-columns:repeat(3,var(--b));grid-template-rows:repeat(3,var(--b));gap:6px}
+  #pad2{display:none}
+  body.local2 #pad2{display:grid}
+  body.local2 .pad{--b:min(52px,13.5vw,11vh);gap:4px}
+  .pb{border:0;border-radius:14px;background:#1b2160;color:#cfd4ff;font-size:22px;touch-action:none;box-shadow:inset 0 -4px 0 #0e1240,0 0 0 1px #3a42a0}
+  body.local2 #pad1 .pb{box-shadow:inset 0 -4px 0 #0e1240,0 0 0 2px #3f9e3a;color:#c4ff8f}
+  body.local2 #pad2 .pb, body.guest #pad1 .pb{box-shadow:inset 0 -4px 0 #0e1240,0 0 0 2px #7a52d6;color:#e2d2ff}
+  #pad1 .pb.on{background:#2f7a2a;color:#fff} #pad2 .pb.on, body.guest #pad1 .pb.on{background:#5a37a8;color:#fff}
+  .pb.up{grid-area:1/2}.pb.left{grid-area:2/1}.pb.right{grid-area:2/3}.pb.down{grid-area:3/2}
+  .pad .tag{grid-area:2/2;display:none;align-items:center;justify-content:center;font-size:11px;font-weight:800;opacity:.8}
+  body.local2 .pad .tag{display:flex}
+  @media (pointer:coarse) and (orientation:landscape){
+    #main{flex-direction:row}
+    #pads{display:contents}
+    #stage{order:1}
+    .pad{align-self:center;margin:0 12px;--b:min(60px,22vh)}
+    #pad1{order:2}
+    body.local2 #pad1{order:0} #pad2{order:2}
+    body.local2 .pad{--b:min(56px,20vh,11vw)}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="hud">
+    <div class="card c1"><span class="lbl" id="n1">PONTOS</span><span class="sc" id="s1">0</span><div class="lives" id="l1"></div></div>
+    <div class="mid">
+      <span class="lbl">FASE <b id="level">1</b> · RECORDE <b id="hi">0</b></span>
+      <div id="mapName"></div>
+      <div id="bar"><i id="barFill"></i></div>
+    </div>
+    <div class="card c2" id="card2"><span class="lbl" id="n2">BLUP</span><span class="sc" id="s2">0</span><div class="lives" id="l2"></div></div>
+    <div class="btns">
+      <span id="netDot" title="Online"></span>
+      <button class="icon-btn" id="muteBtn" aria-label="Som">🔊</button>
+      <button class="icon-btn" id="pauseBtn" aria-label="Pausar">⏸</button>
+    </div>
+  </div>
+  <div id="main">
+    <div id="stage">
+      <canvas id="game"></canvas>
+      <div id="overlay"></div>
+    </div>
+    <div id="pads">
+      <div class="pad" id="pad1">
+        <button class="pb up" data-p="0" data-d="up">▲</button>
+        <button class="pb left" data-p="0" data-d="left">◀</button>
+        <span class="tag g">GLUP</span>
+        <button class="pb right" data-p="0" data-d="right">▶</button>
+        <button class="pb down" data-p="0" data-d="down">▼</button>
+      </div>
+      <div class="pad" id="pad2">
+        <button class="pb up" data-p="1" data-d="up">▲</button>
+        <button class="pb left" data-p="1" data-d="left">◀</button>
+        <span class="tag v">BLUP</span>
+        <button class="pb right" data-p="1" data-d="right">▶</button>
+        <button class="pb down" data-p="1" data-d="down">▼</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+// ---------- Labirintos (originais) — um por fase, em rodízio ----------
+// # parede  . semente  o semente brilhante  - porta  G toca dos besouros
+// Todos compartilham a toca central (linhas 7–11) e os pontos de partida na linha 15.
+const MAPS = [
+ { name:'Neon', edge:'#6b5cff', fill:'#141846', rows:[
+"###################",
+"#o.......#.......o#",
+"#.###.##.#.##.###.#",
+"#.................#",
+"#.##.#.#####.#.##.#",
+"#....#...#...#....#",
+"####.###.#.###.####",
+"####.#.......#.####",
+"####.#.##-##.#.####",
+".......#GGG#.......",
+"####.#.#####.#.####",
+"####.#.......#.####",
+"####.#.#####.#.####",
+"#........#........#",
+"#.##.###.#.###.##.#",
+"#o.#...........#.o#",
+"##.#.#.#####.#.#.##",
+"#....#...#...#....#",
+"#.######.#.######.#",
+"#.................#",
+"###################"]},
+ { name:'Jardim', edge:'#3fcf7a', fill:'#0f2a22', rows:[
+"###################",
+"#o...#.......#...o#",
+"#.##.#.#####.#.##.#",
+"#.................#",
+"##.#.###.#.###.#.##",
+"#..#.....#.....#..#",
+"#.####.#####.####.#",
+"#...#.........#...#",
+"#...#..##-##..#...#",
+".......#GGG#.......",
+"#...#..#####..#...#",
+"#.#.#.........#.#.#",
+"#.#.#.#######.#.#.#",
+"#.................#",
+"#.###.###.###.###.#",
+"#o...............o#",
+"###.#.###.###.#.###",
+"#...#...#.#...#...#",
+"#.#####.#.#.#####.#",
+"#.................#",
+"###################"]},
+ { name:'Cristal', edge:'#3fd0ff', fill:'#0d2236', rows:[
+"###################",
+"#.o.............o.#",
+"#.##.##.#.#.##.##.#",
+"#.................#",
+"#.##.#.##.##.#.##.#",
+"#....#.......#....#",
+"####.#.##.##.#.####",
+"####.#.......#.####",
+"####.#.##-##.#.####",
+".......#GGG#.......",
+"####.#.#####.#.####",
+"####.#.......#.####",
+"####.#.#.#.#.#.####",
+"#.................#",
+"#.###.#.###.#.###.#",
+"#o...............o#",
+"##.##.##.#.##.##.##",
+"#.................#",
+"#.###.###.###.###.#",
+"#.................#",
+"###################"]},
+ { name:'Vulcão', edge:'#ff7a3f', fill:'#2a120d', rows:[
+"###################",
+"#...#.........#...#",
+"#.#.#.###.###.#.#.#",
+"#o#.............#o#",
+"#.#.#..#####..#.#.#",
+"#.....#.....#.....#",
+"####.##.###.##.####",
+"####.#.......#.####",
+"####.#.##-##.#.####",
+"####...#GGG#...####",
+"####.#.#####.#.####",
+"####.#.......#.####",
+"####.#.#####.#.####",
+"#.................#",
+"#.#.##.#####.##.#.#",
+"#.#o...........o#.#",
+"#.#.#..#.#.#..#.#.#",
+"#...#.#.....#.#...#",
+"#.#...#.###.#...#.#",
+"#.................#",
+"###################"]},
+];
+const ROWS = 21, COLS = 19;
+const TAU = Math.PI * 2;
+const DIR = { up:{x:0,y:-1}, down:{x:0,y:1}, left:{x:-1,y:0}, right:{x:1,y:0} };
+const ORDER = [DIR.up, DIR.left, DIR.down, DIR.right];
+const opp = d => ORDER.find(o => o.x === -d.x && o.y === -d.y);
+const wrapX = x => ((x % COLS) + COLS) % COLS;
+let mapIdx = 0, MAP = MAPS[0].rows, walls;
+const isOpen = (x, y) => y >= 0 && y < ROWS && !walls[y][wrapX(x)];
+const approach = (a, b, d) => a < b ? Math.min(b, a + d) : Math.max(b, a - d);
+const wrapDist = (a, b) => { let dx = Math.abs(a.x - b.x); dx = Math.min(dx, COLS - dx); return Math.hypot(dx, a.y - b.y); };
+
+const GHOSTS = [
+  { name:'Brasa',  color:'#ff4d5e', sx:9,  sy:7, release:0,   corner:{x:17,y:-2} },
+  { name:'Pétala', color:'#ff8ad8', sx:9,  sy:9, release:1.5, corner:{x:1, y:-2} },
+  { name:'Gota',   color:'#3fe0ff', sx:8,  sy:9, release:5,   corner:{x:18,y:22} },
+  { name:'Mel',    color:'#ffb340', sx:10, sy:9, release:9,   corner:{x:0, y:22} },
+];
+const PLAYERS = [
+  { name:'Glup', cls:'g', c0:'#e6ffc4', c1:'#9cf56a', c2:'#3fb53a', glow:'#7dff5a', leaf:'#2f9e3a', start1:{x:9,y:15}, start2:{x:6,y:15}, face:'left' },
+  { name:'Blup', cls:'v', c0:'#f1e8ff', c1:'#b98cff', c2:'#6a3fc9', glow:'#a77bff', leaf:'#4b2a91', start1:{x:9,y:15}, start2:{x:12,y:15}, face:'right' },
+];
+const MODES = [7, 20, 7, 20, 5, 20, 5, Infinity]; // par = dispersar, ímpar = perseguir
+const STEAL = 500, LEVEL_BONUS = 1000, LIFE_EVERY = 1000;
+const PSTATES = ['alive', 'dead', 'out'], GSTATES = ['house', 'leave', 'out', 'eaten', 'enter'];
+
+// ---------- DOM ----------
+const cv = document.getElementById('game'), ctx = cv.getContext('2d');
+const stage = document.getElementById('stage'), overlay = document.getElementById('overlay');
+const $ = id => document.getElementById(id);
+let T = 20, dpr = 1, mazeCanvas, mazeWhite;
+
+// ---------- Estado ----------
+let mode = 1, players = [], ghosts = [], pellets, pelletsLeft = 0, dotsEaten = 0, pelletVer = 0;
+let state = 'menu', prevState = null, stateT = 0, time = 0, level = 1;
+let hi = +localStorage.getItem('glup_hi') || 0;
+let wins = (() => { try { return JSON.parse(localStorage.getItem('glup_wins')) || [0, 0, 0]; } catch(e) { return [0, 0, 0]; } })();
+let frightT = 0, modeIdx = 0, modeT = 0, freezeT = 0, clearMsg = '';
+let popups = [], particles = [], bonus = null;
+
+// ---------- Rede (online) ----------
+// net = { role:'host'|'guest', peer, conn, code, ready }
+let net = null, netEvents = [], netAcc = 0, sentPelletVer = -1;
+const isHost  = () => !!(net && net.role === 'host'  && net.ready);
+const isGuest = () => !!(net && net.role === 'guest');
+const myIndex = () => isGuest() ? 1 : 0;
+
+// ---------- Som ----------
+let actx = null, muted = localStorage.getItem('glup_mute') === '1', dotFlip = false, lastDot = 0;
+function initAudio(){
+  if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){} }
+  if (actx && actx.state === 'suspended') actx.resume();
+}
+function tone(f, d, type='square', v=0.05, slide=0, delay=0){
+  if (isHost()) netEvents.push(['t', f, d, type, v, slide, delay]);
+  if (muted || !actx) return;
+  const t = actx.currentTime + delay;
+  const o = actx.createOscillator(), g = actx.createGain();
+  o.type = type; o.frequency.setValueAtTime(f, t);
+  if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, f + slide), t + d);
+  g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+  o.connect(g).connect(actx.destination); o.start(t); o.stop(t + d + 0.03);
+}
+const jingle = notes => notes.forEach((n,i) => tone(n, 0.12, 'square', 0.04, 0, i * 0.11));
+
+// ---------- Layout / mapas ----------
+function setMap(i){
+  mapIdx = i; MAP = MAPS[i].rows;
+  walls = MAP.map(r => [...r].map(c => c === '#' || c === '-' || c === 'G'));
+  buildMazes();
+  $('mapName').textContent = state === 'menu' ? '' : '🗺 ' + MAPS[i].name;
+}
+function buildMazes(){
+  if (!cv.width) return;
+  mazeCanvas = makeMaze(MAPS[mapIdx].edge, MAPS[mapIdx].fill);
+  mazeWhite  = makeMaze('#ffffff', '#2b3070');
+}
+function resize(){
+  const w = stage.clientWidth - 8, h = stage.clientHeight - 8;
+  T = Math.max(8, Math.floor(Math.min(w / COLS, h / ROWS)));
+  dpr = Math.min(window.devicePixelRatio || 1, 3);
+  cv.style.width = COLS * T + 'px'; cv.style.height = ROWS * T + 'px';
+  cv.width = Math.round(COLS * T * dpr); cv.height = Math.round(ROWS * T * dpr);
+  buildMazes();
+}
+function rr(c, x, y, w, h, r){
+  c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r);
+  c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath(); c.fill();
+}
+function makeMaze(edge, fill){
+  const c = document.createElement('canvas'); c.width = cv.width; c.height = cv.height;
+  const m = c.getContext('2d'); m.setTransform(dpr * T, 0, 0, dpr * T, 0, 0);
+  const W = (x, y) => y >= 0 && y < ROWS && x >= 0 && x < COLS && MAP[y][x] === '#';
+  const shape = (i, col) => {
+    m.fillStyle = col;
+    for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+      if (!W(x, y)) continue;
+      rr(m, x + i, y + i, 1 - 2*i, 1 - 2*i, 0.38 - i);
+      if (W(x+1, y)) m.fillRect(x + 0.5, y + i, 1, 1 - 2*i);
+      if (W(x, y+1)) m.fillRect(x + i, y + 0.5, 1 - 2*i, 1);
+      if (W(x+1, y) && W(x, y+1) && W(x+1, y+1)) m.fillRect(x + 0.5, y + 0.5, 1, 1);
+    }
+  };
+  shape(0.08, edge); shape(0.2, fill);
+  m.fillStyle = '#ff9ad5';
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) if (MAP[y][x] === '-') m.fillRect(x, y + 0.42, 1, 0.16);
+  return c;
+}
+
+// ---------- Setup ----------
+function loadPellets(){
+  pelletsLeft = 0; pelletVer++;
+  pellets = MAP.map(r => [...r].map(c => { const v = c === '.' ? 1 : c === 'o' ? 2 : 0; if (v) pelletsLeft++; return v; }));
+}
+function createPlayers(){
+  players = PLAYERS.slice(0, mode).map((d, i) => ({ ...d, id:i, score:0, lives:3, nextLife:LIFE_EVERY,
+    stats:{ dots:0, ghosts:0, steals:0, levels:0 }, levelDots:0 }));
+}
+function placePlayer(p){
+  const s = mode === 2 ? p.start2 : p.start1;
+  Object.assign(p, { x:s.x, y:s.y, dir:null, next:DIR[p.face], faceDir:DIR[p.face], mouth:0,
+    invT:0, stunT:0, powerT:0, stealCd:0, combo:0, deadT:0 });
+}
+function resetActors(){
+  players.forEach(p => { placePlayer(p); p.state = p.lives > 0 ? 'alive' : 'out'; });
+  ghosts = GHOSTS.map((d, i) => ({ ...d, id:i, x:d.sx, y:d.sy, dir:DIR.left,
+    state: i === 0 ? 'out' : 'house', release: d.release / (1 + (level - 1) * 0.2), scared:false, anim:Math.random()*6 }));
+  frightT = 0; modeIdx = 0; modeT = 0; freezeT = 0; bonus = null;
+}
+function setReady(){ state = 'ready'; stateT = 2.2; }
+function startLevel(){
+  setReady(); setMap((level - 1) % MAPS.length);
+  loadPellets(); dotsEaten = 0; players.forEach(p => p.levelDots = 0);
+  resetActors(); updateHud();
+}
+function applyBodyClasses(){
+  document.body.classList.toggle('two', mode === 2);
+  document.body.classList.toggle('local2', mode === 2 && !net);
+  document.body.classList.toggle('online', !!net);
+  document.body.classList.toggle('guest', isGuest());
+}
+function newGame(m){
+  initAudio(); mode = m || mode; level = 1; popups = []; particles = []; netEvents = []; sentPelletVer = -1;
+  applyBodyClasses();
+  createPlayers(); hideOverlay(); startLevel(); resize();
+  jingle([523, 659, 784, 1046, 784, 1046]);
+}
+const baseSpeed = () => Math.min(7.2 + (level - 1) * 0.35, 9.5);
+
+// ---------- Movimento em grade ----------
+function step(e, dist, onCenter){
+  let guard = 0;
+  while (dist > 1e-9 && guard++ < 12) {
+    const rx = Math.round(e.x), ry = Math.round(e.y);
+    if (Math.abs(e.x - rx) < 1e-6 && Math.abs(e.y - ry) < 1e-6) {
+      e.x = rx; e.y = ry;
+      if (e.x < 0) e.x += COLS; else if (e.x >= COLS) e.x -= COLS;
+      if (onCenter(e) === true) return;
+    }
+    if (!e.dir) return;
+    const tx = e.dir.x > 0 ? Math.floor(e.x) + 1 : e.dir.x < 0 ? Math.ceil(e.x) - 1 : e.x;
+    const ty = e.dir.y > 0 ? Math.floor(e.y) + 1 : e.dir.y < 0 ? Math.ceil(e.y) - 1 : e.y;
+    const rem = Math.abs(tx - e.x) + Math.abs(ty - e.y);
+    if (dist >= rem) { e.x = tx; e.y = ty; dist -= rem; }
+    else { e.x += e.dir.x * dist; e.y += e.dir.y * dist; dist = 0; }
+  }
+}
+
+// ---------- Jogadores ----------
+function updatePlayer(p, dt){
+  if (p.state === 'dead') {
+    p.deadT -= dt;
+    if (p.deadT <= 0) {
+      if (p.lives > 0) { placePlayer(p); p.state = 'alive'; p.invT = 2.5; }
+      else p.state = 'out';
+      updateHud();
+    }
+    return;
+  }
+  if (p.state !== 'alive') return;
+  p.invT = Math.max(0, p.invT - dt); p.powerT = Math.max(0, p.powerT - dt); p.stealCd = Math.max(0, p.stealCd - dt);
+  if (p.stunT > 0) { p.stunT -= dt; return; }
+
+  if (p.next && p.dir && p.next.x === -p.dir.x && p.next.y === -p.dir.y) p.dir = p.next;
+  const sp = baseSpeed() * (p.powerT > 0 ? 1.1 : 1);
+  step(p, sp * dt, e => {
+    if (e.next && isOpen(e.x + e.next.x, e.y + e.next.y)) e.dir = e.next;
+    if (e.dir && !isOpen(e.x + e.dir.x, e.y + e.dir.y)) e.dir = null;
+  });
+  if (p.dir) { p.faceDir = p.dir; p.mouth += dt * 16; }
+
+  const ty = Math.round(p.y), rx = Math.round(p.x), tx = wrapX(rx);
+  if (Math.abs(p.x - rx) < 0.4 && Math.abs(p.y - ty) < 0.4 && pellets[ty][tx]) {
+    const v = pellets[ty][tx]; pellets[ty][tx] = 0; pelletsLeft--; dotsEaten++; pelletVer++;
+    p.levelDots++; p.stats.dots++;
+    if (v === 1) {
+      addScore(p, 10);
+      if (time - lastDot > 0.07) { tone((dotFlip ? 520 : 400) * (p.id ? 1.25 : 1), 0.06, 'triangle', 0.06); dotFlip = !dotFlip; lastDot = time; }
+    } else { addScore(p, 50); powerUp(p); }
+    if (dotsEaten === 60 || dotsEaten === 140) bonus = { x:9, y:11, t:9 };
+    if (pelletsLeft === 0) levelClear();
+  }
+  if (bonus && Math.abs(p.x - bonus.x) < 0.6 && Math.abs(p.y - bonus.y) < 0.6) {
+    const pts = 300 + level * 200; addScore(p, pts); popup(bonus.x, bonus.y, '+' + pts, '#ff6b8b');
+    tone(880, 0.25, 'sine', 0.08, 600); bonus = null;
+  }
+}
+
+function levelClear(){
+  state = 'clear'; stateT = 2.8; clearMsg = 'LIMPOU! 🎉';
+  if (mode === 2) {
+    const [a, b] = players;
+    if (a.levelDots !== b.levelDots) {
+      const w = a.levelDots > b.levelDots ? a : b;
+      addScore(w, LEVEL_BONUS); w.stats.levels++;
+      clearMsg = `${w.name} +${LEVEL_BONUS}!`;
+    } else clearMsg = 'Empate na fase!';
+  }
+  jingle([784, 988, 1175, 1568]);
+}
+
+function powerUp(p){
+  frightT = Math.max(2, 7 - (level - 1) * 0.6);
+  p.powerT = frightT; players.forEach(q => q.combo = 0);
+  ghosts.forEach(g => { if (g.state === 'out') { g.scared = true; g.dir = opp(g.dir); } });
+  tone(180, 0.35, 'sawtooth', 0.05, 500);
+}
+
+function die(p){
+  p.state = 'dead'; p.deadT = 1.9; p.lives--; p.dir = null;
+  tone(620, 1.1, 'sawtooth', 0.06, -540);
+  if (navigator.vibrate && p.id === myIndex()) navigator.vibrate(200);
+  if (isHost()) netEvents.push(['v', p.id]);
+  burst(p.x + .5, p.y + .5, p.c1);
+  if (!players.some(q => q.state === 'alive')) { state = 'dying'; stateT = 1.9; }
+  updateHud();
+}
+
+function burst(x, y, c, n = 24){
+  if (isHost()) netEvents.push(['b', +x.toFixed(2), +y.toFixed(2), c, n]);
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * TAU, s = 1.5 + Math.random() * 4;
+    particles.push({ x, y, vx:Math.cos(a) * s, vy:Math.sin(a) * s, t:1, c });
+  }
+}
+
+function addScore(p, n){
+  p.score = Math.max(0, p.score + n);
+  // vida extra a cada LIFE_EVERY pontos (cada marco só vale uma vez, mesmo que perca pontos num roubo)
+  while (p.score >= p.nextLife) {
+    p.nextLife += LIFE_EVERY; p.lives++;
+    jingle([988, 1319, 1568]); popup(p.x, p.y - 1, '+1 VIDA', p.c1);
+  }
+  if (p.score > hi) { hi = p.score; localStorage.setItem('glup_hi', hi); }
+  updateHud();
+}
+function popup(x, y, text, c){
+  if (isHost()) netEvents.push(['p', +x.toFixed(2), +y.toFixed(2), String(text), c]);
+  popups.push({ x:x + .5, y:y + .5, text:String(text), t:1.1, c });
+}
+
+// ---------- Besouros ----------
+function nearestPlayer(g){
+  let best = null, bd = Infinity;
+  for (const p of players) if (p.state === 'alive') { const d = wrapDist(g, p); if (d < bd) { bd = d; best = p; } }
+  return best;
+}
+function chaseTarget(g){
+  const p = nearestPlayer(g);
+  if (!p) return g.corner;
+  const f = p.faceDir || DIR.left;
+  switch (g.id) {
+    case 0: return { x:p.x, y:p.y };
+    case 1: return { x:p.x + f.x * 3, y:p.y + f.y * 3 };
+    case 2: { const r = ghosts[0], ax = p.x + f.x * 2, ay = p.y + f.y * 2; return { x:ax * 2 - r.x, y:ay * 2 - r.y }; }
+    default: return wrapDist(g, p) > 6 ? { x:p.x, y:p.y } : g.corner;
+  }
+}
+function ghostChoose(g){
+  if (g.state === 'eaten' && g.x === 9 && g.y === 7) { g.state = 'enter'; g.dir = DIR.down; return true; }
+  let target;
+  if (g.state === 'eaten') target = { x:9, y:7 };
+  else if (g.scared) target = null;
+  else target = modeIdx % 2 === 0 ? g.corner : chaseTarget(g);
+  const opts = ORDER.filter(d => !(d.x === -g.dir.x && d.y === -g.dir.y) && isOpen(g.x + d.x, g.y + d.y));
+  if (!opts.length) { g.dir = opp(g.dir); return; }
+  if (!target) { g.dir = opts[Math.floor(Math.random() * opts.length)]; return; }
+  let best = opts[0], bd = Infinity;
+  for (const d of opts) {
+    const dx = g.x + d.x - target.x, dy = g.y + d.y - target.y, dd = dx*dx + dy*dy;
+    if (dd < bd) { bd = dd; best = d; }
+  }
+  g.dir = best;
+}
+function updateGhost(g, dt){
+  g.anim += dt * 12;
+  if (g.state === 'house') {
+    g.y = 9 + Math.sin(time * 6 + g.sx) * 0.15;
+    g.release -= dt; if (g.release <= 0) g.state = 'leave';
+    return;
+  }
+  if (g.state === 'leave') {
+    const d = 3.5 * dt;
+    if (Math.abs(g.x - 9) > 0.001 && Math.abs(g.y - 9) > 0.001) g.y = approach(g.y, 9, d);
+    else if (Math.abs(g.x - 9) > 0.001) { g.dir = g.x < 9 ? DIR.right : DIR.left; g.x = approach(g.x, 9, d); }
+    else {
+      g.dir = DIR.up; g.y = approach(g.y, 7, d);
+      if (g.y <= 7) { g.x = 9; g.y = 7; g.state = 'out'; g.dir = Math.random() < 0.5 ? DIR.left : DIR.right; }
+    }
+    return;
+  }
+  if (g.state === 'enter') { g.y = approach(g.y, 9, 5 * dt); if (g.y >= 9) g.state = 'leave'; return; }
+  const b = baseSpeed();
+  let sp = g.state === 'eaten' ? b * 2.2 : g.scared ? b * 0.58 : b * (0.9 + Math.min(level, 6) * 0.01);
+  if (g.state === 'out' && Math.abs(g.y - 9) < 0.01 && (g.x < 4 || g.x > 14)) sp *= 0.55;
+  step(g, sp * dt, ghostChoose);
+}
+
+// ---------- Colisões ----------
+function checkCollisions(){
+  for (const p of players) {
+    if (p.state !== 'alive') continue;
+    for (const g of ghosts) {
+      if (g.state !== 'out' || wrapDist(g, p) >= 0.65) continue;
+      if (g.scared) {
+        g.scared = false; g.state = 'eaten'; p.combo++; p.stats.ghosts++;
+        const pts = 200 * 2 ** (p.combo - 1); addScore(p, pts); popup(g.x, g.y, pts, p.c1);
+        freezeT = 0.4; tone(300, 0.3, 'square', 0.06, 900);
+      } else if (p.invT <= 0) { die(p); break; }
+    }
+  }
+  // disputa: jogador turbinado rouba pontos do rival
+  if (mode === 2) {
+    const [a, b] = players;
+    if (a.state === 'alive' && b.state === 'alive' && wrapDist(a, b) < 0.75) {
+      const atk = a.powerT > 0 && b.powerT <= 0 ? a : b.powerT > 0 && a.powerT <= 0 ? b : null;
+      if (atk && atk.stealCd <= 0) {
+        const vic = atk === a ? b : a;
+        if (vic.invT <= 0) {
+          const amt = Math.min(STEAL, vic.score);
+          addScore(vic, -amt); addScore(atk, amt); atk.stats.steals++;
+          vic.stunT = 1.2; vic.dir = null; atk.stealCd = 1.5; vic.invT = 1.5;
+          popup(atk.x, atk.y - 0.6, '+' + amt, atk.c1); popup(vic.x, vic.y - 0.6, '-' + amt, '#ff6b6b');
+          burst(vic.x + .5, vic.y + .5, '#fff27a', 14);
+          tone(1200, 0.2, 'square', 0.06, -800);
+          if (navigator.vibrate && vic.id === myIndex()) navigator.vibrate([60, 40, 60]);
+          if (isHost()) netEvents.push(['v', vic.id]);
+        }
+      }
+    }
+  }
+}
+
+// ---------- Loop ----------
+function updateFx(dt){
+  popups.forEach(p => { p.t -= dt; p.y -= dt * 0.8; }); popups = popups.filter(p => p.t > 0);
+  particles.forEach(p => { p.t -= dt * 1.2; p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.94; p.vy *= 0.94; });
+  particles = particles.filter(p => p.t > 0);
+}
+function update(dt){
+  time += dt; updateFx(dt);
+  if (state === 'menu') ghosts.forEach(g => g.anim += dt * 8);
+
+  if (state === 'ready') { stateT -= dt; if (stateT <= 0) state = 'play'; return; }
+  if (state === 'dying') {
+    stateT -= dt; players.forEach(p => { if (p.state === 'dead') p.deadT -= dt; });
+    if (stateT <= 0) {
+      if (players.every(p => p.lives <= 0)) gameOver(); else { resetActors(); setReady(); updateHud(); }
+    }
+    return;
+  }
+  if (state === 'clear') { stateT -= dt; if (stateT <= 0) { level++; startLevel(); } return; }
+  if (state !== 'play') return;
+  if (freezeT > 0) { freezeT -= dt; return; }
+
+  if (frightT > 0) {
+    frightT -= dt;
+    if (frightT <= 0) ghosts.forEach(g => g.scared = false);
+  } else {
+    modeT += dt;
+    if (modeT >= MODES[modeIdx]) { modeT = 0; modeIdx++; ghosts.forEach(g => { if (g.state === 'out') g.dir = opp(g.dir); }); }
+  }
+  if (bonus) { bonus.t -= dt; if (bonus.t <= 0) bonus = null; }
+  for (const p of players) { updatePlayer(p, dt); if (state !== 'play') return; }
+  ghosts.forEach(g => updateGhost(g, dt));
+  checkCollisions();
+}
+
+// ---------- Desenho ----------
+function withWrap(e, fn){
+  fn(e.x + .5, e.y + .5);
+  if (e.x < 0) fn(e.x + COLS + .5, e.y + .5);
+  else if (e.x > COLS - 1) fn(e.x - COLS + .5, e.y + .5);
+}
+function drawText(str, x, y, size, color){
+  ctx.save(); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.font = `800 ${Math.round(size * T)}px system-ui, sans-serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.lineWidth = Math.max(2, T * 0.15); ctx.strokeStyle = '#0b0f2a'; ctx.strokeText(str, x * T, y * T);
+  ctx.fillStyle = color; ctx.fillText(str, x * T, y * T); ctx.restore();
+}
+
+function drawPlayer(p, cx, cy){
+  const f = p.faceDir || DIR.left;
+  ctx.save(); ctx.translate(cx, cy);
+  if (p.state === 'dead') {
+    const k = Math.max(0, (p.deadT - 0.6) / 1.3);
+    if (k <= 0) { ctx.restore(); return; }
+    ctx.rotate((1 - k) * 8); ctx.scale(k, k);
+  }
+  if (p.invT > 0 && p.state === 'alive' && Math.floor(time * 10) % 2 === 0) ctx.globalAlpha = 0.35;
+  if (p.powerT > 0) {
+    const blink = p.powerT < 2 && Math.floor(time * 8) % 2 === 0;
+    if (!blink) {
+      ctx.strokeStyle = p.glow; ctx.lineWidth = 0.07; ctx.globalAlpha *= 0.85;
+      ctx.beginPath(); ctx.arc(0, 0, 0.56 + Math.sin(time * 12) * 0.05, 0, TAU); ctx.stroke();
+      ctx.globalAlpha = p.invT > 0 && Math.floor(time * 10) % 2 === 0 ? 0.35 : 1;
+    }
+  }
+  const moving = !!p.dir && state === 'play' && p.stunT <= 0;
+  const open = moving ? Math.sin(p.mouth) * 0.5 + 0.5 : 0.25;
+  const sq = moving ? 1 + Math.sin(p.mouth * 0.5) * 0.06 : 1 + Math.sin(time * 3 + p.id) * 0.03;
+  const r = 0.44;
+  const g = ctx.createRadialGradient(-0.15, -0.18, 0.05, 0, 0, r);
+  g.addColorStop(0, p.c0); g.addColorStop(0.5, p.c1); g.addColorStop(1, p.c2);
+  ctx.shadowColor = p.glow; ctx.shadowBlur = T * (p.powerT > 0 ? 0.8 : 0.35);
+  ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(0, 0.02, r * sq, r / sq, 0, 0, TAU); ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = p.leaf;
+  ctx.beginPath(); ctx.ellipse(0.1, -r / sq - 0.02, 0.13, 0.055, -0.6, 0, TAU); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(-0.06, -r / sq, 0.09, 0.04, 0.7, 0, TAU); ctx.fill();
+  const ex = f.x * 0.13, ey = f.y * 0.1 - 0.09, dizzy = p.stunT > 0;
+  for (const s of [-1, 1]) {
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(ex + s * 0.15, ey, 0.115, 0, TAU); ctx.fill();
+    if (dizzy) {
+      ctx.strokeStyle = '#16203a'; ctx.lineWidth = 0.04;
+      ctx.beginPath(); ctx.moveTo(ex + s*0.15 - 0.06, ey - 0.06); ctx.lineTo(ex + s*0.15 + 0.06, ey + 0.06);
+      ctx.moveTo(ex + s*0.15 + 0.06, ey - 0.06); ctx.lineTo(ex + s*0.15 - 0.06, ey + 0.06); ctx.stroke();
+    } else {
+      ctx.fillStyle = '#16203a'; ctx.beginPath(); ctx.arc(ex + s * 0.15 + f.x * 0.045, ey + f.y * 0.045, 0.06, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(ex + s * 0.15 + f.x * 0.045 - 0.02, ey + f.y * 0.045 - 0.025, 0.02, 0, TAU); ctx.fill();
+    }
+  }
+  ctx.fillStyle = '#5a1430';
+  ctx.beginPath(); ctx.ellipse(f.x * 0.1, 0.17 + f.y * 0.06, 0.13, 0.025 + 0.1 * open, 0, 0, TAU); ctx.fill();
+  if (open > 0.4) { ctx.fillStyle = '#ff7a9a'; ctx.beginPath(); ctx.ellipse(f.x * 0.1, 0.2 + f.y * 0.06 + 0.05 * open, 0.07, 0.035, 0, 0, TAU); ctx.fill(); }
+  if (dizzy) {
+    ctx.fillStyle = '#fff27a';
+    for (let i = 0; i < 3; i++) {
+      const a = time * 6 + i * TAU / 3;
+      ctx.beginPath(); ctx.arc(Math.cos(a) * 0.35, -0.55 + Math.sin(a) * 0.1, 0.06, 0, TAU); ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+
+function drawBug(g, cx, cy){
+  ctx.save(); ctx.translate(cx, cy);
+  const d = g.dir || DIR.left;
+  if (g.state === 'eaten' || g.state === 'enter') {
+    for (const s of [-1, 1]) {
+      const ox = s * 0.14;
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(ox, -0.04, 0.12, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#2a3cff'; ctx.beginPath(); ctx.arc(ox + d.x * 0.05, -0.04 + d.y * 0.05, 0.06, 0, TAU); ctx.fill();
+    }
+    ctx.restore(); return;
+  }
+  let col = g.color;
+  if (g.scared) col = (frightT < 2 && Math.floor(frightT * 6) % 2 === 0) ? '#eef1ff' : '#3a52ff';
+  ctx.rotate(Math.atan2(d.y, d.x));
+  const w = Math.sin(g.anim) * 0.1;
+  ctx.strokeStyle = col; ctx.lineWidth = 0.065; ctx.lineCap = 'round'; ctx.globalAlpha = 0.85;
+  for (let i = -1; i <= 1; i++) for (const s of [-1, 1]) {
+    const k = (i % 2 === 0 ? 1 : -1) * w * s;
+    ctx.beginPath(); ctx.moveTo(i * 0.15, s * 0.18); ctx.lineTo(i * 0.18 + k, s * 0.43); ctx.stroke();
+  }
+  ctx.globalAlpha = 1; ctx.lineWidth = 0.045;
+  for (const s of [-1, 1]) {
+    ctx.beginPath(); ctx.moveTo(0.36, s * 0.06);
+    ctx.quadraticCurveTo(0.5, s * (0.12 + w * 0.5), 0.5, s * 0.26); ctx.stroke();
+  }
+  ctx.shadowColor = col; ctx.shadowBlur = T * 0.25;
+  ctx.fillStyle = col; ctx.beginPath(); ctx.ellipse(-0.06, 0, 0.34, 0.29, 0, 0, TAU); ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = 0.04;
+  ctx.beginPath(); ctx.moveTo(-0.4, 0); ctx.lineTo(0.14, 0); ctx.stroke();
+  ctx.fillStyle = 'rgba(0,0,0,.25)';
+  for (const [sx, sy] of [[-0.18, 0.13], [-0.18, -0.13], [0.0, 0.16], [0.0, -0.16]]) { ctx.beginPath(); ctx.arc(sx, sy, 0.055, 0, TAU); ctx.fill(); }
+  ctx.fillStyle = 'rgba(255,255,255,.3)'; ctx.beginPath(); ctx.ellipse(-0.14, -0.12, 0.12, 0.05, -0.3, 0, TAU); ctx.fill();
+  ctx.fillStyle = g.scared ? '#1a2490' : '#24183a';
+  ctx.beginPath(); ctx.arc(0.27, 0, 0.15, 0, TAU); ctx.fill();
+  for (const s of [-1, 1]) {
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(0.32, s * 0.075, 0.055, 0, TAU); ctx.fill();
+    ctx.fillStyle = g.scared ? '#ff6b6b' : '#000'; ctx.beginPath(); ctx.arc(0.345, s * 0.075, 0.028, 0, TAU); ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawBonus(){
+  if (!bonus || (bonus.t < 2 && Math.floor(bonus.t * 6) % 2 === 0)) return;
+  const x = bonus.x + .5, y = bonus.y + .5 + Math.sin(time * 4) * 0.05;
+  ctx.save(); ctx.translate(x, y);
+  ctx.shadowColor = '#ff4d7a'; ctx.shadowBlur = T * 0.4;
+  ctx.fillStyle = '#ff3d6e';
+  ctx.beginPath(); ctx.arc(-0.13, 0.08, 0.18, 0, TAU); ctx.arc(0.13, 0.1, 0.18, 0, TAU); ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = '#3fb53a'; ctx.lineWidth = 0.05;
+  ctx.beginPath(); ctx.moveTo(-0.1, -0.08); ctx.quadraticCurveTo(0, -0.35, 0.12, -0.38); ctx.quadraticCurveTo(0.1, -0.2, 0.12, -0.06); ctx.stroke();
+  ctx.fillStyle = '#5fdc4a'; ctx.beginPath(); ctx.ellipse(0.2, -0.36, 0.12, 0.05, 0.4, 0, TAU); ctx.fill();
+  ctx.restore();
+}
+
+function draw(){
+  if (!mazeCanvas) return;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = '#0b0f2a'; ctx.fillRect(0, 0, cv.width, cv.height);
+  const flash = state === 'clear' && stateT < 2 && Math.floor(stateT * 6) % 2 === 0;
+  ctx.drawImage(flash ? mazeWhite : mazeCanvas, 0, 0);
+  ctx.setTransform(dpr * T, 0, 0, dpr * T, 0, 0);
+
+  ctx.fillStyle = '#ffe1b0'; ctx.beginPath();
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++)
+    if (pellets[y][x] === 1) { ctx.moveTo(x + .62, y + .5); ctx.arc(x + .5, y + .5, 0.11, 0, TAU); }
+  ctx.fill();
+  const pr = 0.24 + Math.sin(time * 6) * 0.05;
+  ctx.shadowColor = '#fff27a'; ctx.shadowBlur = T * 0.6; ctx.fillStyle = '#fff6a0';
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++)
+    if (pellets[y][x] === 2) { ctx.beginPath(); ctx.arc(x + .5, y + .5, pr, 0, TAU); ctx.fill(); }
+  ctx.shadowBlur = 0;
+
+  drawBonus();
+  const hideGhosts = (state === 'dying' && stateT < 1.5) || state === 'clear';
+  if (!hideGhosts) ghosts.forEach(g => withWrap(g, (x, y) => drawBug(g, x, y)));
+  if (state !== 'menu' && state !== 'lobby') players.forEach(p => { if (p.state !== 'out') withWrap(p, (x, y) => drawPlayer(p, x, y)); });
+
+  for (const p of particles) {
+    ctx.globalAlpha = Math.max(0, p.t); ctx.fillStyle = p.c;
+    ctx.beginPath(); ctx.arc(p.x, p.y, 0.09, 0, TAU); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  for (const p of popups) { ctx.globalAlpha = Math.min(1, p.t * 2); drawText(p.text, p.x, p.y, 0.6, p.c); }
+  ctx.globalAlpha = 1;
+
+  if (state === 'ready') {
+    if (stateT > 1.1) drawText(`FASE ${level} · ${MAPS[mapIdx].name.toUpperCase()}`, 9.5, 11.5, 0.75, '#fff27a');
+    else if (net) drawText(isGuest() ? 'VOCÊ É O BLUP!' : 'VOCÊ É O GLUP!', 9.5, 11.5, 0.75, isGuest() ? '#c9a8ff' : '#a6ff6b');
+    else drawText(mode === 2 ? 'PRONTOS?' : 'PRONTO!', 9.5, 11.5, 0.85, '#fff27a');
+  }
+  if (state === 'clear' && stateT > 1) drawText(clearMsg, 9.5, 11.5, 0.8, '#a6ff6b');
+}
+
+let last = performance.now();
+function frame(now){
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  if (isGuest()) guestUpdate(dt);
+  else {
+    update(dt);
+    if (isHost()) { netAcc += dt; if (netAcc >= 1 / 30) { netAcc = 0; sendSnapshot(); } }
+  }
+  draw(); requestAnimationFrame(frame);
+}
+
+// ---------- HUD / Overlay ----------
+function livesHtml(p){
+  if (!p) return '';
+  if (p.state === 'out' || (p.lives <= 0 && p.state !== 'alive')) return 'FORA';
+  const dot = `<span class="life ${p.id ? 'v' : ''}"></span>`;
+  return p.lives > 5 ? `${dot}×${p.lives}` : dot.repeat(Math.max(0, p.lives));
+}
+let hudKey = '';
+function updateHud(){
+  const [a, b] = players;
+  const key = [mode, !!net, myIndex(), level, hi, muted, ...players.map(p => p.score + ':' + p.lives + ':' + p.state)].join('|');
+  if (key === hudKey) return; hudKey = key;
+  const me = i => net && myIndex() === i ? ' · VOCÊ' : '';
+  $('n1').textContent = mode === 2 ? 'GLUP' + me(0) : 'PONTOS';
+  $('n2').textContent = 'BLUP' + me(1);
+  $('s1').textContent = a ? a.score : 0; $('l1').innerHTML = livesHtml(a);
+  if (b) {
+    $('s2').textContent = b.score; $('l2').innerHTML = livesHtml(b);
+    const tot = a.score + b.score;
+    $('barFill').style.width = (tot ? a.score / tot * 100 : 50) + '%';
+  }
+  $('hi').textContent = hi; $('level').textContent = level;
+  $('muteBtn').textContent = muted ? '🔇' : '🔊';
+}
+function showOverlay(html){ overlay.innerHTML = html; overlay.classList.remove('hidden'); }
+function hideOverlay(){ overlay.classList.add('hidden'); }
+const isTouch = matchMedia('(pointer:coarse)').matches;
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[c]);
+const winsLine = () => wins[0] + wins[1] + wins[2]
+  ? `<p class="small">Placar de vitórias: <b class="g">Glup ${wins[0]}</b> x <b class="v">${wins[1]} Blup</b>${wins[2] ? ` · ${wins[2]} empate(s)` : ''}</p>` : '';
+
+function showMenu(){
+  state = 'menu'; $('mapName').textContent = '';
+  showOverlay(`<h1>GLUP!</h1>
+    <p>Coma todas as sementes e fuja dos besouros. A <b style="color:#fff6a0">semente brilhante</b> deixa você caçar os besouros!
+      A cada fase, um labirinto novo.</p>
+    <p class="small">❤️ A cada <b>${LIFE_EVERY} pontos</b> você ganha mais uma vida!</p>
+    <div class="row">
+      <button class="big-btn" data-act="start1">1 JOGADOR</button>
+      <button class="big-btn alt" data-act="start2">2 NO MESMO APARELHO</button>
+    </div>
+    <div class="row"><button class="big-btn net" data-act="online">🌐 JOGAR ONLINE</button></div>
+    <p class="small"><b class="g">Glup</b> x <b class="v">Blup</b>: disputem as mesmas sementes! Turbinado (semente brilhante), trombe no rival
+      para <b>roubar ${STEAL} pontos</b>. Quem comer mais sementes na fase ganha <b>+${LEVEL_BONUS}</b>. Vence quem tiver mais pontos.</p>
+    <p class="small">${isTouch ? 'Deslize na tela ou use o controle.' : 'Setas ou WASD. No mesmo teclado: Glup = W A S D, Blup = setas. Espaço/P pausa, M som.'}</p>
+    ${winsLine()}`);
+}
+function showOnlineMenu(){
+  state = 'menu';
+  showOverlay(`<h2>🌐 Jogar online</h2>
+    <p>Crie uma sala e mande o link para o outro jogador, ou entre com o código que ele te passou.</p>
+    <button class="big-btn net" data-act="host">CRIAR SALA</button>
+    <p class="small" style="margin-top:18px">Já tem um código?</p>
+    <div class="row">
+      <input id="joinCode" class="field" maxlength="5" placeholder="CÓDIGO" autocomplete="off" autocapitalize="characters">
+      <button class="big-btn alt sm" data-act="join" style="margin-top:0">ENTRAR</button>
+    </div>
+    <button class="big-btn ghost sm" data-act="menu">VOLTAR</button>`);
+}
+function gameOver(){
+  state = 'over';
+  if (mode === 1) {
+    const p = players[0];
+    showOverlay(`<h2>Fim de jogo</h2><p>Pontos: <b>${p.score}</b><br>Recorde: <b>${hi}</b><br>Fase alcançada: <b>${level}</b></p>
+      <div class="row"><button class="big-btn" data-act="again">JOGAR DE NOVO</button><button class="big-btn ghost" data-act="menu">MENU</button></div>`);
+    return;
+  }
+  const [a, b] = players;
+  let title;
+  if (a.score === b.score) { wins[2]++; title = '🤝 Empate!'; }
+  else {
+    const w = a.score > b.score ? a : b; wins[w.id]++;
+    title = net ? (w.id === myIndex() ? '🏆 Você venceu!' : `😵 <span class="${w.cls}">${w.name}</span> venceu!`)
+                : `🏆 <span class="${w.cls}">${w.name}</span> venceu!`;
+  }
+  localStorage.setItem('glup_wins', JSON.stringify(wins));
+  if (!isGuest()) jingle([659, 784, 988, 1319, 988, 1319]);
+  const row = (lbl, f) => `<tr><td>${lbl}</td><td class="g">${f(a)}</td><td class="v">${f(b)}</td></tr>`;
+  showOverlay(`<h2>${title}</h2>
+    <table class="res">
+      <tr><th></th><th class="g">Glup</th><th class="v">Blup</th></tr>
+      ${row('Pontos', p => `<b>${p.score}</b>`)}
+      ${row('Sementes', p => p.stats.dots)}
+      ${row('Besouros', p => p.stats.ghosts)}
+      ${row('Roubos', p => p.stats.steals)}
+      ${row('Fases ganhas', p => p.stats.levels)}
+      <tr><td>Fase final</td><td colspan="2">${level}</td></tr>
+    </table>
+    ${winsLine()}
+    <div class="row"><button class="big-btn alt" data-act="again">REVANCHE</button><button class="big-btn ghost" data-act="menu">MENU</button></div>
+    ${isGuest() ? '<p class="small">A revanche começa quando qualquer um dos dois tocar em REVANCHE.</p>' : ''}`);
+}
+function togglePause(){
+  if (isGuest()) { netSend({ t:'pause' }); return; }
+  if (state === 'play' || state === 'ready') {
+    prevState = state; state = 'paused';
+    showOverlay(`<h2>Pausado</h2><div class="row"><button class="big-btn" data-act="resume">CONTINUAR</button><button class="big-btn ghost" data-act="menu">${net ? 'SAIR' : 'MENU'}</button></div>`);
+  } else if (state === 'paused') { state = prevState; hideOverlay(); last = performance.now(); }
+}
+function toMenu(){
+  leaveOnline();
+  mode = 1; applyBodyClasses(); createPlayers(); level = 1;
+  setMap(0); loadPellets(); resetActors(); updateHud(); showMenu(); resize();
+}
+overlay.addEventListener('click', e => {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  const act = b.dataset.act;
+  initAudio();
+  if (act === 'start1') newGame(1);
+  else if (act === 'start2') newGame(2);
+  else if (act === 'online') showOnlineMenu();
+  else if (act === 'host') hostRoom();
+  else if (act === 'join') { const c = ($('joinCode').value || '').trim().toUpperCase(); if (c.length >= 4) joinRoom(c); }
+  else if (act === 'copy') copyLink();
+  else if (act === 'share') navigator.share({ title:'Glup!', text:'Bora jogar Glup! comigo? Entre na minha sala:', url:net.link }).catch(() => {});
+  else if (act === 'again') { if (isGuest()) { netSend({ t:'again' }); b.textContent = 'AGUARDANDO…'; } else newGame(mode); }
+  else if (act === 'resume') togglePause();
+  else if (act === 'menu') toMenu();
+});
+overlay.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id === 'joinCode') overlay.querySelector('[data-act=join]').click(); });
+
+// ---------- Online (PeerJS / WebRTC) ----------
+const PEER_PREFIX = 'glup-jogo-v1-';
+const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const randomCode = () => Array.from({ length:5 }, () => CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)]).join('');
+function loadPeer(){
+  if (window.Peer) return Promise.resolve();
+  return new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js';
+    s.onload = res; s.onerror = () => rej(new Error('Não foi possível carregar o módulo online. Verifique a internet.'));
+    document.head.appendChild(s);
+  });
+}
+function netSend(m){ try { if (net && net.conn && net.conn.open) net.conn.send(m); } catch(e){} }
+function leaveOnline(){
+  if (!net) return;
+  const n = net; net = null;
+  try { n.conn && n.conn.close(); } catch(e){}
+  try { n.peer && n.peer.destroy(); } catch(e){}
+  if (location.search.includes('sala=')) history.replaceState(null, '', location.pathname);
+  applyBodyClasses(); hudKey = '';
+}
+function netError(msg){
+  leaveOnline();
+  state = 'menu';
+  showOverlay(`<h2>😕 Ops</h2><p>${esc(msg)}</p>
+    <div class="row"><button class="big-btn net" data-act="online">TENTAR DE NOVO</button><button class="big-btn ghost" data-act="menu">MENU</button></div>`);
+}
+function peerErrorMsg(err){
+  const t = err && err.type;
+  if (t === 'peer-unavailable') return 'Sala não encontrada. Confira o código ou peça um link novo.';
+  if (t === 'network' || t === 'server-error' || t === 'socket-error') return 'Sem conexão com o servidor de salas. Verifique a internet e tente de novo.';
+  if (t === 'browser-incompatible') return 'Este navegador não suporta jogo online. Tente o Chrome ou o Safari atualizados.';
+  return 'Falha na conexão' + (t ? ` (${t})` : '') + '.';
+}
+function lobby(html){ state = 'lobby'; showOverlay(html); }
+const fileWarn = () => location.protocol === 'file:'
+  ? '<p class="small" style="color:#ffb340">⚠️ Você abriu o jogo como arquivo local. O link só funciona com o jogo hospedado num site (veja o LEIAME).</p>' : '';
+
+async function hostRoom(tries = 0){
+  leaveOnline();
+  lobby(`<h2><span class="spin"></span>Criando sala…</h2>`);
+  try { await loadPeer(); } catch(e) { netError(e.message); return; }
+  const code = randomCode();
+  const peer = new Peer(PEER_PREFIX + code);
+  net = { role:'host', peer, conn:null, code, ready:false, link: location.origin + location.pathname + '?sala=' + code };
+  peer.on('open', () => {
+    lobby(`<h2>Sala criada! 🎉</h2>
+      <p>Mande este link para o outro jogador:</p>
+      <input id="roomLink" class="field" readonly value="${esc(net.link)}">
+      <div class="row">
+        <button class="big-btn net sm" data-act="copy">📋 COPIAR LINK</button>
+        ${navigator.share ? '<button class="big-btn alt sm" data-act="share">📤 COMPARTILHAR</button>' : ''}
+      </div>
+      <p class="small" style="margin-top:14px">ou passe o código:</p>
+      <div class="code">${code}</div>
+      ${fileWarn()}
+      <p class="small"><span class="spin"></span>Aguardando o outro jogador… Você será o <b class="g">Glup</b>.</p>
+      <button class="big-btn ghost sm" data-act="menu">CANCELAR</button>`);
+  });
+  peer.on('connection', conn => {
+    if (net.conn) { conn.on('open', () => { conn.send({ t:'full' }); setTimeout(() => conn.close(), 500); }); return; }
+    net.conn = conn;
+    conn.on('open', () => {
+      net.ready = true; newGame(2);
+    });
+    conn.on('data', onHostData);
+    conn.on('close', () => { if (net && net.conn === conn) connectionLost(); });
+    conn.on('error', () => {});
+  });
+  peer.on('disconnected', () => { try { if (net && net.peer === peer && !peer.destroyed) peer.reconnect(); } catch(e){} });
+  peer.on('error', err => {
+    if (!net || net.peer !== peer) return;
+    if (err.type === 'unavailable-id' && tries < 3) { hostRoom(tries + 1); return; }
+    if (net.ready && (err.type === 'network' || err.type === 'server-error')) return; // sala já conectada: só o servidor de salas caiu
+    netError(peerErrorMsg(err));
+  });
+}
+async function joinRoom(code){
+  leaveOnline();
+  lobby(`<h2><span class="spin"></span>Entrando na sala ${esc(code)}…</h2>
+    <button class="big-btn ghost sm" data-act="menu">CANCELAR</button>`);
+  try { await loadPeer(); } catch(e) { netError(e.message); return; }
+  const peer = new Peer();
+  net = { role:'guest', peer, conn:null, code, ready:false };
+  const timer = setTimeout(() => { if (net && net.peer === peer && !net.ready) netError('O anfitrião não respondeu. Confira se a sala ainda está aberta.'); }, 20000);
+  peer.on('open', () => {
+    const conn = peer.connect(PEER_PREFIX + code, { reliable:true });
+    net.conn = conn;
+    conn.on('open', () => {
+      clearTimeout(timer); net.ready = true;
+      mode = 2; level = 1; applyBodyClasses(); createPlayers(); setMap(0); loadPellets(); resetActors();
+      state = 'ready'; stateT = 2; hideOverlay(); resize(); hudKey = ''; updateHud();
+    });
+    conn.on('data', onGuestData);
+    conn.on('close', () => { if (net && net.conn === conn) connectionLost(); });
+  });
+  peer.on('error', err => { if (net && net.peer === peer) { clearTimeout(timer); netError(peerErrorMsg(err)); } });
+}
+function connectionLost(){
+  const wasGuest = isGuest();
+  leaveOnline();
+  state = 'over';
+  showOverlay(`<h2>🔌 Conexão perdida</h2><p>${wasGuest ? 'O anfitrião saiu ou a internet caiu.' : 'O outro jogador saiu ou a internet caiu.'}</p>
+    <div class="row"><button class="big-btn net" data-act="online">NOVA SALA</button><button class="big-btn ghost" data-act="menu">MENU</button></div>`);
+}
+function copyLink(){
+  const inp = $('roomLink');
+  const ok = () => { const b = overlay.querySelector('[data-act=copy]'); if (b) b.textContent = '✅ COPIADO!'; };
+  if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(net.link).then(ok, () => { inp.select(); document.execCommand('copy'); ok(); });
+  else { inp.select(); document.execCommand('copy'); ok(); }
+}
+
+// Anfitrião: recebe comandos do convidado
+function onHostData(m){
+  if (!m || typeof m !== 'object') return;
+  if (m.t === 'd' && DIR[m.d]) setDir(1, m.d);
+  else if (m.t === 'pause') { if (state === 'play' || state === 'ready' || state === 'paused') togglePause(); }
+  else if (m.t === 'again' && state === 'over') newGame(2);
+}
+// Anfitrião: envia o estado do jogo ~30x por segundo
+const r2 = v => Math.round(v * 100) / 100;
+const di = d => d ? ORDER.indexOf(d) : -1;
+function sendSnapshot(){
+  if (!net || !net.conn || !net.conn.open) return;
+  const s = { t:'s', st:state, stT:r2(stateT), lv:level, m:mapIdx, fr:r2(frightT), cm:clearMsg,
+    p: players.map(p => [r2(p.x), r2(p.y), di(p.dir), di(p.faceDir), PSTATES.indexOf(p.state), r2(p.deadT), r2(p.invT), r2(p.powerT), r2(p.stunT),
+      p.score, p.lives, p.stats.dots, p.stats.ghosts, p.stats.steals, p.stats.levels]),
+    g: ghosts.map(g => [r2(g.x), r2(g.y), di(g.dir), GSTATES.indexOf(g.state), g.scared ? 1 : 0]),
+    b: bonus ? [bonus.x, bonus.y, r2(bonus.t)] : 0, ev: netEvents };
+  if (pelletVer !== sentPelletVer) { s.pe = pellets.map(r => r.join('')).join(''); sentPelletVer = pelletVer; }
+  netEvents = [];
+  netSend(s);
+}
+// Convidado: aplica o estado recebido
+let lastSnapState = '';
+function onGuestData(m){
+  if (!m || typeof m !== 'object') return;
+  if (m.t === 'full') { netError('Essa sala já está cheia.'); return; }
+  if (m.t !== 's') return;
+  if (m.m !== mapIdx || !mazeCanvas) setMap(m.m);
+  level = m.lv; stateT = m.stT; frightT = m.fr; clearMsg = m.cm;
+  if (m.pe) {
+    pellets = []; pelletsLeft = 0;
+    for (let y = 0; y < ROWS; y++) { const row = []; for (let x = 0; x < COLS; x++) { const v = +m.pe[y * COLS + x]; row.push(v); if (v) pelletsLeft++; } pellets.push(row); }
+  }
+  m.p.forEach((a, i) => {
+    const p = players[i]; if (!p) return;
+    const jump = Math.abs(a[0] - p.x) > 2 || Math.abs(a[1] - p.y) > 2;
+    p.tx = a[0]; p.ty = a[1]; if (jump) { p.x = a[0]; p.y = a[1]; }
+    p.dir = ORDER[a[2]] || null; p.faceDir = ORDER[a[3]] || p.faceDir; p.state = PSTATES[a[4]];
+    p.deadT = a[5]; p.invT = a[6]; p.powerT = a[7]; p.stunT = a[8];
+    p.score = a[9]; p.lives = a[10]; p.stats = { dots:a[11], ghosts:a[12], steals:a[13], levels:a[14] };
+    if (p.score > hi) { hi = p.score; localStorage.setItem('glup_hi', hi); }
+  });
+  m.g.forEach((a, i) => {
+    const g = ghosts[i]; if (!g) return;
+    const jump = Math.abs(a[0] - g.x) > 2 || Math.abs(a[1] - g.y) > 2;
+    g.tx = a[0]; g.ty = a[1]; if (jump) { g.x = a[0]; g.y = a[1]; }
+    g.dir = ORDER[a[2]] || g.dir; g.state = GSTATES[a[3]]; g.scared = !!a[4];
+  });
+  bonus = m.b ? { x:m.b[0], y:m.b[1], t:m.b[2] } : null;
+  for (const ev of m.ev || []) {
+    if (ev[0] === 't') { if (!muted && actx) toneLocal(...ev.slice(1)); }
+    else if (ev[0] === 'p') popups.push({ x:ev[1] + .5, y:ev[2] + .5, text:ev[3], t:1.1, c:ev[4] });
+    else if (ev[0] === 'b') burst(ev[1], ev[2], ev[3], ev[4]);
+    else if (ev[0] === 'v' && ev[1] === myIndex() && navigator.vibrate) navigator.vibrate(150);
+  }
+  // sincroniza telas de pausa / fim de jogo
+  if (m.st !== lastSnapState) {
+    if (m.st === 'paused') showOverlay(`<h2>Pausado</h2><div class="row"><button class="big-btn" data-act="resume">CONTINUAR</button><button class="big-btn ghost" data-act="menu">SAIR</button></div>`);
+    else if (m.st === 'over') { state = 'over'; gameOver(); }
+    else if (lastSnapState === 'paused' || lastSnapState === 'over' || lastSnapState === '') hideOverlay();
+    if (m.st === 'ready' && lastSnapState === 'over') { popups = []; particles = []; }
+    lastSnapState = m.st;
+  }
+  state = m.st;
+  updateHud();
+}
+function toneLocal(f, d, type, v, slide, delay){
+  const t = actx.currentTime + delay;
+  const o = actx.createOscillator(), g = actx.createGain();
+  o.type = type; o.frequency.setValueAtTime(f, t);
+  if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, f + slide), t + d);
+  g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+  o.connect(g).connect(actx.destination); o.start(t); o.stop(t + d + 0.03);
+}
+// Convidado: só anima e suaviza o movimento entre os pacotes recebidos
+function guestUpdate(dt){
+  time += dt; updateFx(dt);
+  const k = Math.min(1, dt * 18);
+  for (const e of [...players, ...ghosts]) {
+    if (e.tx === undefined) continue;
+    const dx = e.tx - e.x, dy = e.ty - e.y;
+    if (Math.abs(dx) > COLS / 2) e.x = e.tx; else e.x += dx * k;
+    e.y += dy * k;
+  }
+  if (state === 'play') {
+    players.forEach(p => { if (p.dir && p.stunT <= 0) p.mouth += dt * 16; });
+    ghosts.forEach(g => g.anim += dt * 12);
+  }
+}
+
+// ---------- Controles ----------
+function setDir(pi, name){ const p = players[pi]; if (p && DIR[name]) p.next = DIR[name]; }
+function input(pi, name){
+  initAudio();
+  if (isGuest()) { netSend({ t:'d', d:name }); return; }
+  setDir(net ? 0 : pi, name);
+}
+const K1 = { KeyW:'up', KeyS:'down', KeyA:'left', KeyD:'right' };
+const K2 = { ArrowUp:'up', ArrowDown:'down', ArrowLeft:'left', ArrowRight:'right' };
+addEventListener('keydown', e => {
+  if (e.target && e.target.tagName === 'INPUT') return;
+  if (K1[e.code]) { input(0, K1[e.code]); e.preventDefault(); return; }
+  if (K2[e.code]) { input(mode === 2 ? 1 : 0, K2[e.code]); e.preventDefault(); return; }
+  if (state === 'menu') { if (e.code === 'Digit1') newGame(1); if (e.code === 'Digit2') newGame(2); }
+  if (e.code === 'Space' || e.code === 'Enter') {
+    e.preventDefault();
+    if (state === 'menu' && !net) newGame(mode);
+    else if (state === 'over' && !net) newGame(mode);
+    else if (state !== 'lobby') togglePause();
+  }
+  if (e.code === 'KeyP' || e.code === 'Escape') { if (state !== 'menu' && state !== 'lobby' && state !== 'over') togglePause(); }
+  if (e.code === 'KeyM') toggleMute();
+});
+
+// deslizar (multitoque: em 2 no mesmo aparelho, cada metade da tela é de um jogador)
+const swipes = new Map();
+stage.addEventListener('touchstart', e => {
+  if (e.target.closest('button, input, #overlay:not(.hidden)')) return;
+  initAudio();
+  for (const t of e.changedTouches)
+    swipes.set(t.identifier, { x:t.clientX, y:t.clientY, pi: mode === 2 && !net && t.clientX > innerWidth / 2 ? 1 : 0 });
+  e.preventDefault();
+}, { passive:false });
+stage.addEventListener('touchmove', e => {
+  let used = false;
+  for (const t of e.changedTouches) {
+    const s = swipes.get(t.identifier); if (!s) continue;
+    used = true;
+    const dx = t.clientX - s.x, dy = t.clientY - s.y;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) > 18) {
+      input(s.pi, Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up'));
+      s.x = t.clientX; s.y = t.clientY;
+    }
+  }
+  if (used) e.preventDefault();
+}, { passive:false });
+const endSwipe = e => { for (const t of e.changedTouches) swipes.delete(t.identifier); };
+stage.addEventListener('touchend', endSwipe); stage.addEventListener('touchcancel', endSwipe);
+
+document.querySelectorAll('.pb').forEach(b => {
+  b.addEventListener('pointerdown', e => {
+    e.preventDefault(); input(+b.dataset.p, b.dataset.d); b.classList.add('on');
+    if (navigator.vibrate) navigator.vibrate(8);
+  });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => b.addEventListener(ev, () => b.classList.remove('on')));
+});
+function toggleMute(){ muted = !muted; localStorage.setItem('glup_mute', muted ? '1' : '0'); hudKey = ''; updateHud(); }
+$('muteBtn').addEventListener('click', () => { initAudio(); toggleMute(); });
+$('pauseBtn').addEventListener('click', () => { if (state === 'play' || state === 'ready' || state === 'paused') togglePause(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden && (state === 'play' || state === 'ready')) togglePause(); });
+document.addEventListener('dblclick', e => e.preventDefault());
+document.addEventListener('contextmenu', e => { if (!e.target.closest('input')) e.preventDefault(); });
+
+addEventListener('resize', resize);
+addEventListener('orientationchange', () => setTimeout(resize, 200));
+if (window.ResizeObserver) new ResizeObserver(resize).observe(stage);
+
+// ---------- Início ----------
+setMap(0); createPlayers(); loadPellets(); resetActors(); resize(); updateHud();
+const roomParam = new URLSearchParams(location.search).get('sala');
+if (roomParam && /^[A-Z0-9]{4,6}$/i.test(roomParam)) {
+  showOverlay(`<h1>GLUP!</h1><p>Você foi convidado para uma partida online!</p>
+    <p class="small">Sala <b>${esc(roomParam.toUpperCase())}</b> · você será o <b class="v">Blup</b></p>
+    <button class="big-btn alt" id="joinNow">ENTRAR NA SALA</button>
+    <button class="big-btn ghost sm" data-act="menu">IR PARA O MENU</button>`);
+  // o toque no botão também libera o áudio no celular
+  $('joinNow').addEventListener('click', () => { initAudio(); joinRoom(roomParam.toUpperCase()); });
+} else showMenu();
+requestAnimationFrame(frame);
+// gancho p/ testes automatizados
+window.__glup = { newGame, get state(){ return state; }, get players(){ return players; }, get ghosts(){ return ghosts; },
+  get mapIdx(){ return mapIdx; }, get pellets(){ return pellets; }, setPL(n){ pelletsLeft = n; }, update, draw, setDir, addScore };
+})();
+</script>
+</body>
+</html>
